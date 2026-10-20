@@ -126,13 +126,13 @@ def sync_update_json(version, code, repo, zip_name, zip_base=None):
     且文件名带版本号 = 每次都是新路径 = 不会命中 12 小时的旧缓存。
     换成自建镜像时传 zip_base 即可。
     """
-    base = zip_base or ("https://cdn.jsdelivr.net/gh/%s@main/release" % repo)
+    base = zip_base or ("https://gcore.jsdelivr.net/gh/%s@main/release" % repo)
     base = base.replace("{repo}", repo).replace("{version}", version).rstrip("/")
     data = {
         "version": version,
         "versionCode": code,
         "zipUrl": "%s/%s" % (base, zip_name),
-        "changelog": "https://cdn.jsdelivr.net/gh/%s@main/CHANGELOG.md" % repo,
+        "changelog": "https://gcore.jsdelivr.net/gh/%s@main/CHANGELOG.md" % repo,
     }
     with open(UPDATE_JSON, "w", encoding="utf-8", newline="\n") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)

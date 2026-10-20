@@ -1022,7 +1022,11 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   // 版本源：与 module.prop 的 versionCode 同编码（MAJOR*10000 + MINOR*100 + PATCH）
   const APP = {version:'v3.0', code:30000};
   const UPD_REPO = 'qvq9999/MemKeep';
+  // jsDelivr 有多个边缘域名，国内经常只有其中一两个可用（实测 cdn 整段不通、gcore 正常），
+  // 所以并发打四个，谁先成功用谁。raw.githubusercontent 作为最后兜底。
   const UPD_SOURCES = [
+    'https://gcore.jsdelivr.net/gh/' + UPD_REPO + '@main/update.json',
+    'https://fastly.jsdelivr.net/gh/' + UPD_REPO + '@main/update.json',
     'https://cdn.jsdelivr.net/gh/' + UPD_REPO + '@main/update.json',
     'https://raw.githubusercontent.com/' + UPD_REPO + '/main/update.json'
   ];
