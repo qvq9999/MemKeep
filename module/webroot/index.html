@@ -564,30 +564,52 @@ html:not([data-theme="dark"]) .seg.accent button.on{background:var(--ac);color:#
 .danger-zone button svg{width:15px;height:15px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .theme-row{display:flex;gap:6px;padding:0 16px 14px}
 
-/* ============ tabbar ============ */
+/* ============ tabbar（悬浮胶囊 + 滑动滑块） ============ */
+/* 悬浮胶囊：左右各留 14px、离底 14px，浅色下靠 --line-strong 的 1px 描边和投影浮起来。
+   深色下页面底 8% 白的描边几乎看不见，单独提亮一档并压深阴影 —— 否则胶囊边界糊成一片。 */
 .tabbar{
-  position:fixed;left:0;right:0;bottom:0;z-index:30;margin-inline:auto;
-  width:100%;max-width:520px;
-  display:grid;grid-template-columns:repeat(4,1fr);
-  padding:8px 8px calc(8px + env(safe-area-inset-bottom));
-  /* 不用 backdrop-filter：WebView 里 blur 要按滚动位置每帧重算整块背景，
-     是这套界面里最贵的合成操作。改成「提高不透明度的普通半透明底 + 上边框」，
-     视觉上仍是"内容从下面透出来"的观感，成本降到几乎为零。 */
-  background:color-mix(in srgb,var(--bg) 95%,transparent);
-  border-top:1px solid var(--line);
+  position:fixed;left:14px;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));
+  z-index:30;margin-inline:auto;
+  width:auto;max-width:492px;height:64px;
+  display:grid;grid-template-columns:repeat(4,1fr);align-items:center;
+  padding:7px;border-radius:32px;
+  background:var(--s1);
+  box-shadow:0 16px 38px -18px rgba(0,0,0,.45), 0 0 0 1px var(--line-strong);
+  isolation:isolate;
+}
+html[data-theme="dark"] .tabbar{
+  /* 深色下 --line（8% 白）几乎不可见，胶囊边界会糊进背景：
+     底面上提一档到 --s2，描边提到 18% 白，再叠一条顶部 1px 内高光。 */
+  background:var(--s2);
+  box-shadow:0 18px 40px -14px rgba(0,0,0,.8),
+             0 0 0 1px rgba(255,255,255,.18),
+             inset 0 1px 0 rgba(255,255,255,.07);
+}
+/* 滑块位置由 JS 写 --nav-i（0–3），CSS 只负责位移与过渡。
+   不用 :has() 定位 —— 老 WebView 不支持，滑块会一直卡在第一个。 */
+.tabbar .navthumb{
+  position:absolute;top:7px;left:7px;
+  width:calc((100% - 14px)/4);height:50px;border-radius:25px;
+  background:var(--ac);box-shadow:0 8px 18px -8px var(--ac-line);
+  transform:translateX(calc(var(--nav-i,0) * 100%));
+  transition:transform .36s cubic-bezier(.34,1.28,.5,1);
+  pointer-events:none;
 }
 .tabbar button{
-  display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0 4px;
+  position:relative;z-index:1;height:50px;padding:0;border-radius:25px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
   color:var(--tx3);transition:color .18s;
 }
 .tabbar button svg{width:21px;height:21px;stroke:currentColor;stroke-width:1.85;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .tabbar button span{font-size:10px;font-weight:550;letter-spacing:.1px}
-.tabbar button.on{color:var(--ac)}
-.tabbar button.on svg{filter:drop-shadow(0 0 7px var(--ac-line))}
+.tabbar button.on{color:#fff}
+/* 深色主题的 accent 是亮薄荷色，选中文字要用深色才够对比 */
+html[data-theme="dark"] .tabbar button.on{color:#04120c}
+html[data-theme="dark"] .tabbar button.on svg{filter:none}
 
 /* ============ sticky save ============ */
 .savebar{
-  position:fixed;left:0;right:0;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom));
+  position:fixed;left:0;right:0;bottom:calc(var(--nav-h) + 16px + env(safe-area-inset-bottom));
   margin-inline:auto;
   width:100%;max-width:520px;padding:10px var(--pad) 12px;z-index:29;
   background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--bg) 92%,transparent) 34%);
@@ -947,6 +969,7 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
   </div>
 
   <nav class="tabbar" id="tabbar">
+    <span class="navthumb" aria-hidden="true"></span>
     <button data-tab="monitor" class="on">
       <svg viewBox="0 0 24 24"><path d="m12 14 3.5-3.5"/><path d="M3.4 19a10 10 0 1 1 17.2 0"/></svg><span>概览</span>
     </button>
@@ -1370,6 +1393,9 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
     });
     $('#saveBar').classList.toggle('show', name === 'tune');
     window.scrollTo(0,0);
+    // 滑块位置：写一个索引，CSS 用 translateX(calc(var(--nav-i) * 100%)) 跟过去
+    const nav = $('#tabbar');
+    if(nav) nav.style.setProperty('--nav-i', String(TABS.indexOf(name)));
     // 切页时补一次数据：日志和关于页的数据只在需要时才拉，避免开机时拖慢首屏
     if(name === 'logs' && (BRIDGE_STATE === 'ok' || BRIDGE_STATE === 'demo')){
       loadLogs();
