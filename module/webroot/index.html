@@ -3,11 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- 支持 theme-color 的宿主（Custom Tabs / 部分管理器 WebView）会用它给状态栏上色，
+     值由 applyTheme() 按当前主题回填，保证和页面底色一致 -->
+<meta name="theme-color" content="#f4f5f7">
 <meta name="color-scheme" content="light">
 <title>MemKeep++</title>
 <style>
 /* ============ tokens ============ */
 :root{
+  --sat:env(safe-area-inset-top,0px);
   color-scheme:dark;
   --bg:#0a0b0d;
   --s1:#121418;
@@ -65,7 +69,7 @@ html:not([data-theme="dark"]){
 [hidden]{display:none !important}
 /* 始终为垂直滚动条预留宽度：切换长度不同的页面时视口宽度不变，固定底栏不会左右跳动。
    不支持 scrollbar-gutter 的旧内核退化为 overflow-y:scroll（效果相同）。 */
-html{-webkit-text-size-adjust:100%;scrollbar-gutter:stable}
+html{-webkit-text-size-adjust:100%;scrollbar-gutter:stable;background:var(--bg)}
 @supports not (scrollbar-gutter:stable){html{overflow-y:scroll}}
 body{
   background:var(--bg);color:var(--tx);
@@ -95,6 +99,10 @@ main{padding:0 var(--pad) calc(var(--nav-h) + 28px + env(safe-area-inset-bottom)
 @keyframes fade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 
 /* ============ topbar ============ */
+/* 宿主是 edge-to-edge（内容画到状态栏下面）时，页面要自己负责那块区域：
+   顶栏钉住并铺上页面底色，滚动内容就不会从时钟/电量下面穿过去；
+   非 edge-to-edge 的宿主不加这个类，顶栏照旧跟随滚动，不多占高度。 */
+html.e2e .topbar{position:sticky;top:0;z-index:28;background:var(--bg)}
 .topbar{
   display:flex;align-items:center;justify-content:space-between;gap:12px;
   padding:calc(14px + env(safe-area-inset-top)) var(--pad) 14px;
@@ -1049,6 +1057,13 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
       ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
       : mode;
     document.documentElement.setAttribute('data-theme', t);
+    // 状态栏配色：支持 theme-color 的宿主会拿它给状态栏上色，
+    // 取的是当前主题解析后的 --bg，所以深浅色切换时状态栏跟着变，不会留一条硬接缝。
+    const tc = document.querySelector('meta[name="theme-color"]');
+    if(tc){
+      const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+      if(bg) tc.setAttribute('content', bg);
+    }
     const seg = $('#themeSeg');
     if(seg) $$('button',seg).forEach(b=>b.classList.toggle('on', b.dataset.themeVal === mode));
   }
@@ -1058,6 +1073,13 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
     if(THEME_MODES.indexOf(stored) >= 0) savedTheme = stored;
   }catch(e){}
   applyTheme(params.get('theme') || savedTheme);
+
+  // 宿主真的 edge-to-edge 时，env(safe-area-inset-top) 才会大于 0。
+  // 只有这种情况才钉住顶栏 —— 否则会平白多占一条高度。
+  (function markEdgeToEdge(){
+    const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
+    if(sat > 0) document.documentElement.classList.add('e2e');
+  })();
 
   $('#themeSeg') && $('#themeSeg').addEventListener('click', e=>{
     const b = e.target.closest('button[data-theme-val]');

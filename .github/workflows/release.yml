@@ -64,12 +64,29 @@ jobs:
             git push origin main
           fi
 
+      - name: Extract this version's changelog
+        run: |
+          # Release 说明只放本版那一段：从 "## <version>" 到下一个 "## " 之前。
+          # 之前直接 body_path: CHANGELOG.md，把从 v2.1 开始的全部历史都贴进了每个 Release。
+          VERSION="${{ steps.meta.outputs.version }}"
+          awk -v hdr="## $VERSION" '
+            $0 == hdr { found=1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md | sed -e '/./,$!d' > RELEASE_BODY.md
+          if [ ! -s RELEASE_BODY.md ]; then
+            echo "CHANGELOG.md 里没有找到 $VERSION 段落，退回整份文件"
+            cp CHANGELOG.md RELEASE_BODY.md
+          fi
+          echo "--- 本版说明 $(wc -l < RELEASE_BODY.md) 行 ---"
+          head -n 12 RELEASE_BODY.md
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ steps.meta.outputs.version }}
-          body_path: CHANGELOG.md
+          body_path: RELEASE_BODY.md
           files: dist/${{ steps.meta.outputs.zip }}
           fail_on_unmatched_files: true
 
