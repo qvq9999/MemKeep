@@ -1,10 +1,18 @@
 name: Release
 
-# 用法：改好 module/module.prop 的 version 与 versionCode → 提交 → 打 tag 推上去
+# 用法：改好 module/module.prop 的 version 与 versionCode → 提交到 main → 打 tag 推上去
 #   git tag v2.2.0 && git push origin v2.2.0
-# 流水线会：打包 ZIP → 建 Release → 按 module.prop 重写 update.json 并提交回 main。
-# 因为 module.prop 里的 updateJson 指向 main 分支的 update.json，
-# 所以 update.json 必须在 Release 之后立刻回到 main，用户端才能查到新版本。
+#
+# 流水线顺序（顺序很重要）：
+#   1. 打包 ZIP
+#   2. 把 ZIP 提交到 main 的 release/ 目录，并重写 update.json
+#      —— 必须先提交，jsDelivr 才能从这个路径取到包
+#   3. 建 GitHub Release（作为存档，也方便有代理的用户）
+#   4. purge jsDelivr 上 update.json 的缓存（分支引用默认缓存 12 小时）
+#
+# 为什么 zipUrl 走 jsDelivr 而不是 Release 直链：
+#   github.com/releases/download 在国内经常连不上；jsDelivr 有 Near China 节点且无需备案。
+#   ZIP 文件名带版本号 = 每次都是新路径 = 不会命中旧缓存，所以包本身永远是新的。
 
 on:
   push:
@@ -14,12 +22,19 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      # 显式检出 main：tag 事件下默认是 detached HEAD，
+      # 回写 commit 时 push 到 main 会因为非快进而失败。
       - uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Read version
@@ -35,9 +50,21 @@ jobs:
       - name: Build zip
         run: |
           python3 scripts/build.py --update-json --repo "${{ github.repository }}"
-          ls -lh dist/
+          ls -lh dist/ release/
 
-      - name: Create release
+      - name: Publish to main (release/ + update.json)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add release update.json
+          if git diff --cached --quiet; then
+            echo "无需提交"
+          else
+            git commit -m "chore(release): publish ${{ steps.meta.outputs.zip }}"
+            git push origin main
+          fi
+
+      - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
@@ -46,20 +73,8 @@ jobs:
           files: dist/${{ steps.meta.outputs.zip }}
           fail_on_unmatched_files: true
 
-      - name: Commit update.json back to main
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- update.json; then
-            echo "update.json 无变化，跳过"
-            exit 0
-          fi
-          git add update.json
-          git commit -m "chore(release): sync update.json -> ${{ steps.meta.outputs.version }}"
-          git push origin HEAD:main
-
-      # module.prop 里的 updateJson 走 jsDelivr，而 jsDelivr 对分支引用默认缓存 12 小时。
-      # 不主动 purge 的话，用户最多要等半天才收到更新提示。purge 失败不影响发版。
+      # update.json 是固定路径且走 @main，jsDelivr 默认缓存 12 小时；
+      # 不主动 purge 的话，用户最多要等半天才看到更新。包本身是新路径，无需 purge。
       - name: Purge jsDelivr cache
         run: |
           for f in update.json CHANGELOG.md; do

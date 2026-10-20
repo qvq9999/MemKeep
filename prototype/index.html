@@ -897,9 +897,10 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
         html: '<p>' + esc(APP.version) + ' → <b style="color:var(--ac)">' + esc(info.version || '') + '</b>' +
               '（versionCode ' + remote + '）</p>' +
               (log ? '<pre class="sheetlog">' + esc(log) + '</pre>' : '<p>该版本未提供更新日志。</p>') +
-              '<p>安装由 root 管理器完成：回到 KernelSU → 模块 → MemKeep++，卡片上会出现「更新」按钮。</p>',
+              '<p>安装交给 root 管理器：回到 KernelSU → 模块 → MemKeep++，卡片上会出现「更新」按钮。' +
+              '下载走国内可达的镜像源，不会再卡在 GitHub 直链上。</p>',
         ok: '知道了',
-        cancel: '打开下载页',
+        cancel: '下载到本地',
         onCancel: ()=> openUrl(info.zipUrl || ('https://github.com/' + UPD_REPO + '/releases'))
       });
     } finally {
