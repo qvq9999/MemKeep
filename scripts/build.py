@@ -127,10 +127,11 @@ def sync_update_json(version, code, repo, zip_name, zip_base=None):
     换成自建镜像时传 zip_base 即可。
     """
     base = zip_base or ("https://cdn.jsdelivr.net/gh/%s@main/release" % repo)
+    base = base.replace("{repo}", repo).replace("{version}", version).rstrip("/")
     data = {
         "version": version,
         "versionCode": code,
-        "zipUrl": "%s/%s" % (base.rstrip("/"), zip_name),
+        "zipUrl": "%s/%s" % (base, zip_name),
         "changelog": "https://cdn.jsdelivr.net/gh/%s@main/CHANGELOG.md" % repo,
     }
     with open(UPDATE_JSON, "w", encoding="utf-8", newline="\n") as f:
@@ -171,7 +172,9 @@ def main():
     ap.add_argument("--update-json", action="store_true", help="按 module.prop 重写 update.json")
     ap.add_argument("--repo", default=DEFAULT_REPO, help="GitHub owner/repo，默认 %s" % DEFAULT_REPO)
     ap.add_argument("--zip-base", default=None,
-                    help="zipUrl 前缀；默认用 jsDelivr 的 <repo>@main/release，可换成自建镜像")
+                    help="zipUrl 前缀；支持 {repo} / {version} 占位符。"
+                         "默认 jsDelivr 的 <repo>@main/release；换 ghproxy 示例："
+                         "--zip-base 'https://ghfast.top/https://github.com/{repo}/releases/download/{version}'")
     args = ap.parse_args()
 
     version, code = read_prop()
