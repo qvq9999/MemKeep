@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>MemKeep++</title>
+  <style>
+    :root{color-scheme:light dark;--bg:#f2f2f7;--card:#fff;--text:#000;--muted:#8e8e93;--sep:rgba(60,60,67,.12);--accent:#007aff;--fill:rgba(120,120,128,.16);--btn-bg:rgba(120,120,128,.12);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+    @media(prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--text:#fff;--muted:#8e8e93;--sep:rgba(84,84,88,.6);--fill:rgba(118,118,128,.24);--btn-bg:rgba(118,118,128,.18)}}
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{font-size:14px}
+    body{background:var(--bg);color:var(--text);font-size:15px;line-height:1.45;min-height:100dvh;overflow-x:hidden;-webkit-text-size-adjust:100%}
+    button,select,input{font:inherit;color:inherit}
+    .wrap{max-width:600px;margin:0 auto;padding:calc(14px+env(safe-area-inset-top)) 14px calc(20px+env(safe-area-inset-bottom))}
+    header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px}
+    h1{font-size:22px;font-weight:700;letter-spacing:-.3px}
+    .status{font-size:13px;color:var(--muted)}
+    h2{font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:18px 4px 6px}
+    h2:first-of-type{margin-top:0}
+    .group{background:var(--card);border:1px solid var(--sep);border-radius:10px;overflow:hidden}
+    .cell{display:flex;align-items:center;gap:10px;min-height:44px;padding:8px 14px}
+    .cell+.cell{border-top:1px solid var(--sep)}
+    .cell>div:first-child{flex:1;min-width:0}
+    .cell strong{display:block;font-size:15px;font-weight:400;line-height:1.3}
+    .cell small{display:block;font-size:12px;color:var(--muted);margin-top:1px;line-height:1.3}
+    .toggle{position:relative;width:44px;height:26px;flex-shrink:0}
+    .toggle input{position:absolute;inset:0;opacity:0;cursor:pointer}
+    .toggle span{position:absolute;inset:0;border-radius:31px;background:var(--fill);transition:background .2s;pointer-events:none}
+    .toggle span::after{content:"";position:absolute;width:22px;height:22px;left:2px;top:2px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.15);transition:transform .2s}
+    .toggle input:checked+span{background:var(--accent)}
+    .toggle input:checked+span::after{transform:translateX(18px)}
+    select{appearance:none;-webkit-appearance:none;height:30px;border:1px solid var(--sep);border-radius:7px;background:var(--fill);padding:0 24px 0 9px;font-size:14px;outline:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%238e8e93'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;max-width:130px}
+    .seg{display:flex;background:var(--fill);border:1px solid var(--sep);border-radius:8px;padding:2px;flex-shrink:0}
+    .seg button{height:26px;padding:0 10px;border:0;border-radius:6px;background:transparent;font-size:12px;color:var(--muted);cursor:pointer;transition:all .15s;white-space:nowrap}
+    .seg button.on{background:var(--card);color:var(--text);font-weight:500;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+    .actions{display:flex;gap:10px;margin:16px 0}
+    .actions button{flex:1;height:42px;border:1px solid var(--sep);border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;transition:opacity .15s}
+    .actions button:active{opacity:.6}
+    #reloadBtn{background:var(--btn-bg);color:var(--accent)}
+    #saveBtn{background:var(--accent);color:#fff;border-color:transparent}
+    pre{background:var(--card);border:1px solid var(--sep);border-radius:10px;padding:10px 14px;white-space:pre-wrap;word-break:break-all;font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;line-height:1.45;color:var(--muted);max-height:180px;overflow-y:auto}
+    .toast{position:fixed;left:50%;bottom:calc(20px+env(safe-area-inset-bottom));transform:translateX(-50%) translateY(14px);padding:8px 16px;border-radius:999px;background:rgba(30,30,32,.92);color:#fff;font-size:13px;pointer-events:none;opacity:0;transition:all .25s;z-index:99}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  </style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>MemKeep++</h1>
+    <span class="status" id="status"></span>
+  </header>
+
+  <h2>ZRAM</h2>
+  <div class="group">
+    <div class="cell">
+      <div><strong>启用 ZRAM 重建</strong><small>开机时按配置重建压缩交换区</small></div>
+      <label class="toggle"><input id="zramEnable" type="checkbox"><span></span></label>
+    </div>
+    <div class="cell">
+      <div><strong>ZRAM 大小</strong><small>auto 按内存自动限制在 8–16G</small></div>
+      <select id="zramSize"><option value="auto">auto</option><option value="8G">8G</option><option value="12G">12G</option><option value="16G">16G</option><option value="50%">50%</option><option value="75%">75%</option><option value="100%">100%</option><option value="125%">125%</option></select>
+    </div>
+    <div class="cell">
+      <div><strong>压缩算法</strong><small>auto 自动选择内核支持的算法</small></div>
+      <select id="zramAlgorithm"><option value="auto">auto</option><option value="zstd">zstd</option><option value="lz4">lz4</option><option value="lzo-rle">lzo-rle</option><option value="lzo">lzo</option></select>
+    </div>
+    <div class="cell">
+      <div><strong>保留 backing device</strong><small>如果原本有后端设备则尝试保留</small></div>
+      <label class="toggle"><input id="keepBacking" type="checkbox"><span></span></label>
+    </div>
+  </div>
+
+  <h2>后台</h2>
+  <div class="group">
+    <div class="cell">
+      <div><strong>保后台强度</strong><small>越强越能留后台，也越可能增加功耗</small></div>
+      <div class="seg" id="keepMode"><button type="button" data-value="balanced">均衡</button><button type="button" data-value="strong">增强</button><button type="button" data-value="max">极限</button></div>
+    </div>
+    <div class="cell">
+      <div><strong>延迟重应用</strong><small>开机稳定后再补一次关键参数</small></div>
+      <label class="toggle"><input id="lateReapply" type="checkbox"><span></span></label>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button id="reloadBtn" type="button">重新读取</button>
+    <button id="saveBtn" type="button">保存</button>
+  </div>
+
+  <h2>日志</h2>
+  <pre id="log">暂无日志</pre>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const moduleId='memkeep_plus';
+const moduleDir=`/data/adb/modules/${moduleId}`;
+const configPath=`${moduleDir}/config.conf`;
+const logPath=`${moduleDir}/memkeep.log`;
+const storageKey=`${moduleId}:config`;
+
+const els={};
+['status','zramEnable','zramSize','zramAlgorithm','keepBacking','keepMode','lateReapply','saveBtn','reloadBtn','log','toast'].forEach(id=>els[id]=document.getElementById(id));
+
+const defaults={ZRAM_ENABLE:'true',ZRAM_SIZE:'auto',ZRAM_ALGORITHM:'auto',ZRAM_KEEP_BACKING_DEV:'true',KEEP_MODE:'strong',LATE_REAPPLY:'true'};
+
+function setStatus(t){els.status.textContent=t}
+
+function toast(t){
+  els.toast.textContent=t;
+  els.toast.classList.add('show');
+  clearTimeout(toast.timer);
+  toast.timer=setTimeout(()=>els.toast.classList.remove('show'),1800);
+}
+
+function shellQuote(v){return `'${String(v).replace(/'/g,`'\\''`)}'`}
+
+function textValue(v){
+  if(typeof v==='string')return v;
+  if(Array.isArray(v))return v.map(textValue).join('\n');
+  if(v==null)return '';
+  return String(v);
+}
+
+function normalizeExecResult(r){
+  if(Array.isArray(r)&&typeof r[0]==='number')r={errno:r[0],stdout:r[1],stderr:r[2]};
+  if(typeof r==='string')return r;
+  if(!r||typeof r!=='object')return textValue(r);
+  const code=r.errno??r.code??r.exitCode??r.status;
+  const stdout=r.stdout??r.out??r.output??r.result??r.data??'';
+  const stderr=r.stderr??r.err??r.error??'';
+  if(typeof code==='number'&&code!==0)throw new Error(textValue(stderr||stdout||`exec code ${code}`));
+  return textValue(stdout||stderr);
+}
+
+async function exec(cmd){
+  const api=(window.ksu&&typeof window.ksu.exec==='function')?window.ksu:((window.KSU&&typeof window.KSU.exec==='function')?window.KSU:null);
+  if(!api)throw new Error('KSU WebUI bridge unavailable');
+  return new Promise((resolve,reject)=>{
+    let done=false;
+    const finish=(...a)=>{
+      if(done)return;done=true;clearTimeout(timer);
+      try{
+        if(a.length>=2&&typeof a[0]==='number')resolve(normalizeExecResult({errno:a[0],stdout:a[1],stderr:a[2]}));
+        else resolve(normalizeExecResult(a.length<=1?a[0]:a));
+      }catch(e){reject(e)}
+    };
+    const timer=setTimeout(()=>{if(!done)finish('')},12000);
+    try{
+      let r;
+      if(api.exec.length>=3)r=api.exec(cmd,{},finish);
+      else if(api.exec.length>=2)r=api.exec(cmd,finish);
+      else r=api.exec(cmd);
+      if(r&&typeof r.then==='function'){
+        r.then(finish).catch(e=>{if(!done){done=true;clearTimeout(timer);reject(e)}});
+      }else if(r!==undefined)finish(r);
+      else if(api.exec.length<2)finish('');
+    }catch(e){if(!done){done=true;clearTimeout(timer);reject(e)}}
+  });
+}
+
+async function execQuiet(cmd){
+  try{return{ok:true,output:await exec(cmd)}}catch(e){return{ok:false,output:'',error:e}}
+}
+
+function parseConfig(text){
+  const c={...defaults};
+  if(!text||!String(text).trim())return c;
+  String(text).split(/\r?\n/).forEach(l=>{
+    l=l.trim();
+    if(!l||l.startsWith('#'))return;
+    const i=l.indexOf('=');
+    if(i<1)return;
+    const k=l.slice(0,i).trim(),v=l.slice(i+1).trim();
+    if(k in c)c[k]=v;
+  });
+  return c;
+}
+
+function hasConfigValues(text){
+  return /(^|\n)ZRAM_ENABLE=/.test(text||'')||/(^|\n)KEEP_MODE=/.test(text||'');
+}
+
+function loadCached(){
+  try{const s=localStorage.getItem(storageKey);return s?{...defaults,...JSON.parse(s)}:null}catch(_){return null}
+}
+
+function saveCached(c){try{localStorage.setItem(storageKey,JSON.stringify(c))}catch(_){}}
+
+function setMode(v){
+  [...els.keepMode.querySelectorAll('button')].forEach(b=>b.classList.toggle('on',b.dataset.value===v));
+  els.keepMode.dataset.value=v;
+}
+
+function render(c){
+  els.zramEnable.checked=c.ZRAM_ENABLE==='true';
+  els.zramSize.value=[...els.zramSize.options].some(o=>o.value===c.ZRAM_SIZE)?c.ZRAM_SIZE:'auto';
+  els.zramAlgorithm.value=[...els.zramAlgorithm.options].some(o=>o.value===c.ZRAM_ALGORITHM)?c.ZRAM_ALGORITHM:'auto';
+  els.keepBacking.checked=c.ZRAM_KEEP_BACKING_DEV==='true';
+  els.lateReapply.checked=c.LATE_REAPPLY==='true';
+  setMode(c.KEEP_MODE||'strong');
+}
+
+function currentConfig(){
+  return{
+    ZRAM_ENABLE:els.zramEnable.checked?'true':'false',
+    ZRAM_SIZE:els.zramSize.value||defaults.ZRAM_SIZE,
+    ZRAM_ALGORITHM:els.zramAlgorithm.value||defaults.ZRAM_ALGORITHM,
+    ZRAM_KEEP_BACKING_DEV:els.keepBacking.checked?'true':'false',
+    KEEP_MODE:els.keepMode.dataset.value||defaults.KEEP_MODE,
+    LATE_REAPPLY:els.lateReapply.checked?'true':'false'
+  };
+}
+
+function saveCommand(c){
+  return['sh',shellQuote(`${moduleDir}/save_config.sh`),
+    shellQuote(c.ZRAM_ENABLE),shellQuote(c.ZRAM_SIZE),shellQuote(c.ZRAM_ALGORITHM),
+    shellQuote(c.ZRAM_KEEP_BACKING_DEV),shellQuote(c.KEEP_MODE),shellQuote(c.LATE_REAPPLY)
+  ].join(' ');
+}
+
+async function load(){
+  setStatus('读取中…');
+  const cached=loadCached();
+  if(cached)render(cached);
+  try{
+    const txt=await exec(`cat ${shellQuote(configPath)} 2>/dev/null`);
+    if(hasConfigValues(txt)){
+      const c=parseConfig(txt);render(c);saveCached(c);
+    }else if(!cached){render(defaults)}
+    const log=await exec(`tail -n 60 ${shellQuote(logPath)} 2>/dev/null`);
+    els.log.textContent=log.trim()||'暂无日志，重启一次后会生成。';
+    setStatus('已读取');
+  }catch(_){
+    if(!cached)render(defaults);
+    els.log.textContent=cached
+      ?'已显示上次保存的配置；当前 KSU WebUI 没有返回配置文件内容。'
+      :'无法连接 KSU WebUI 执行环境。';
+    setStatus('离线');
+  }
+}
+
+async function save(){
+  setStatus('保存中…');
+  const expected=currentConfig();
+  render(expected);saveCached(expected);
+  const sr=await execQuiet(saveCommand(expected));
+  if(sr.ok&&hasConfigValues(sr.output)){
+    const saved=parseConfig(sr.output);render(saved);saveCached(saved);
+  }else{render(expected)}
+  setStatus('已保存');toast('已保存，ZRAM 重启后生效');
+  const ar=await execQuiet(`sh ${shellQuote(`${moduleDir}/apply.sh`)} >/dev/null 2>&1 || true`);
+  const lr=await execQuiet(`tail -n 60 ${shellQuote(logPath)} 2>/dev/null`);
+  if(lr.ok&&lr.output.trim())els.log.textContent=lr.output.trim();
+  else if(!sr.ok)els.log.textContent=`已按当前选择保存显示。\n如果重启后参数实际生效，可以忽略 KSU WebUI 的脚本返回异常。\n${sr.error?.message||sr.error||''}`.trim();
+  else if(!ar.ok)els.log.textContent=`配置已保存；立即应用未返回结果，重启后生效。\n${ar.error?.message||ar.error||''}`.trim();
+  else els.log.textContent='已保存配置，重启后会重建 ZRAM。';
+}
+
+els.keepMode.addEventListener('click',e=>{
+  const b=e.target.closest('button[data-value]');
+  if(b)setMode(b.dataset.value);
+});
+
+els.saveBtn.addEventListener('click',save);
+els.reloadBtn.addEventListener('click',load);
+load();
+</script>
+</body>
+</html>

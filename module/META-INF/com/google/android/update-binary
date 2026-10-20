@@ -1,0 +1,29 @@
+#!/sbin/sh
+
+ui_print() { echo "$1"; }
+
+require_root_manager() {
+  ui_print "*******************************"
+  ui_print " KernelSU/Magisk is required. "
+  ui_print "*******************************"
+  exit 1
+}
+
+OUTFD=$2
+ZIPFILE=$3
+
+mount /data 2>/dev/null
+
+if [ -f /data/adb/magisk/util_functions.sh ]; then
+  . /data/adb/magisk/util_functions.sh
+  install_module
+  exit 0
+fi
+
+if [ -f /data/adb/ksu/util_functions.sh ]; then
+  . /data/adb/ksu/util_functions.sh
+  install_module
+  exit 0
+fi
+
+require_root_manager

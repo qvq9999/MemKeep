@@ -1,0 +1,15 @@
+# 构建产物
+dist/
+
+# 原始 v2.1 压缩包与解压副本，仅作对照，不入库
+MemKeep++-v2.1-Web.zip
+extracted/
+
+# 工具缓存与截图
+.workbuddy/
+__pycache__/
+*.pyc
+
+# 系统垃圾
+Thumbs.db
+.DS_Store

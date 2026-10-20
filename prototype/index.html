@@ -1,0 +1,1160 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<title>MemKeep++</title>
+<style>
+/* ============ tokens ============ */
+:root{
+  --bg:#0a0b0d;
+  --s1:#121418;
+  --s2:#1a1d23;
+  --s3:#23272f;
+  --line:rgba(255,255,255,.075);
+  --line-strong:rgba(255,255,255,.13);
+  --tx:#f2f4f6;
+  --tx2:#98a0ab;
+  --tx3:#5f6672;
+  --ac:#3ddc97;
+  --ac-2:#22c7d6;
+  --ac-soft:rgba(61,220,151,.12);
+  --ac-line:rgba(61,220,151,.34);
+  --warn:#ffb020;
+  --warn-soft:rgba(255,176,32,.12);
+  --danger:#ff5f57;
+  --danger-soft:rgba(255,95,87,.12);
+  --info:#5b9dff;
+  --track:rgba(255,255,255,.08);
+  --shadow:0 18px 50px -22px rgba(0,0,0,.9);
+  --r-card:22px;
+  --r-inner:14px;
+  --nav-h:70px;
+  --pad:16px;
+}
+html[data-theme="light"]{
+  --bg:#f4f5f7;
+  --s1:#ffffff;
+  --s2:#eef0f4;
+  --s3:#e3e7ec;
+  --line:rgba(16,18,21,.075);
+  --line-strong:rgba(16,18,21,.14);
+  --tx:#0f1114;
+  --tx2:#69707b;
+  --tx3:#9aa1ac;
+  --ac:#0f9f68;
+  --ac-2:#0a8fa8;
+  --ac-soft:rgba(15,159,104,.10);
+  --ac-line:rgba(15,159,104,.28);
+  --warn:#b87200;
+  --warn-soft:rgba(184,114,0,.10);
+  --danger:#d63a33;
+  --danger-soft:rgba(214,58,51,.10);
+  --info:#2f6fd0;
+  --track:rgba(16,18,21,.09);
+  --shadow:0 14px 34px -22px rgba(16,18,21,.45);
+}
+
+/* ============ base ============ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+/* 始终为垂直滚动条预留宽度：切换长度不同的页面时视口宽度不变，固定底栏不会左右跳动。
+   不支持 scrollbar-gutter 的旧内核退化为 overflow-y:scroll（效果相同）。 */
+html{-webkit-text-size-adjust:100%;scrollbar-gutter:stable}
+@supports not (scrollbar-gutter:stable){html{overflow-y:scroll}}
+body{
+  background:var(--bg);color:var(--tx);
+  font-family:-apple-system,BlinkMacSystemFont,"MiSans","HarmonyOS Sans SC","Noto Sans CJK SC","PingFang SC","Microsoft YaHei",sans-serif;
+  font-size:15px;line-height:1.5;
+  min-height:100dvh;overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;
+}
+body::before{
+  content:"";position:fixed;inset:-40% 0 auto 0;height:60%;pointer-events:none;z-index:0;
+  background:radial-gradient(60% 60% at 50% 0%,rgba(61,220,151,.13),transparent 72%);
+}
+html[data-theme="light"] body::before{background:radial-gradient(60% 60% at 50% 0%,rgba(15,159,104,.10),transparent 72%)}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+b,strong{font-weight:600}
+.num{font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+
+/* ============ layout ============ */
+.app{position:relative;z-index:1;max-width:520px;margin:0 auto;min-height:100dvh}
+main{padding:0 var(--pad) calc(var(--nav-h) + 28px + env(safe-area-inset-bottom))}
+.view{display:none;animation:fade .22s ease}
+.view.on{display:block}
+#view-tune{padding-bottom:46px}
+@keyframes fade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+/* ============ topbar ============ */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:calc(14px + env(safe-area-inset-top)) var(--pad) 14px;
+}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.mark{
+  width:34px;height:34px;border-radius:11px;flex:none;position:relative;
+  background:linear-gradient(145deg,var(--ac),var(--ac-2));
+  box-shadow:0 6px 18px -6px var(--ac-line);
+  display:grid;place-items:center;
+}
+.mark svg{width:19px;height:19px;stroke:#04120c;stroke-width:2.1;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.brand h1{font-size:16.5px;font-weight:650;letter-spacing:-.2px;line-height:1.15}
+.brand .sub{font-size:11.5px;color:var(--tx3);margin-top:1px;letter-spacing:.1px}
+.top-right{display:flex;align-items:center;gap:8px;flex:none}
+.chip{
+  display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 10px;
+  border-radius:999px;font-size:11.5px;font-weight:550;letter-spacing:.1px;
+  border:1px solid var(--line);background:var(--s2);color:var(--tx2);white-space:nowrap;
+}
+.chip .dot{width:5px;height:5px;border-radius:50%;background:var(--tx3)}
+.chip.ok{color:var(--ac);border-color:var(--ac-line);background:var(--ac-soft)}
+.chip.ok .dot{background:var(--ac);box-shadow:0 0 0 3px var(--ac-soft);animation:pulse 2.4s ease-in-out infinite}
+.chip.warn{color:var(--warn);border-color:rgba(255,176,32,.36);background:var(--warn-soft)}
+.chip.warn .dot{background:var(--warn)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.icon-btn{
+  width:34px;height:34px;border-radius:11px;display:grid;place-items:center;
+  border:1px solid var(--line);background:var(--s2);color:var(--tx2);
+  transition:transform .18s ease,color .18s;
+}
+.icon-btn:active{transform:scale(.93);color:var(--ac)}
+.icon-btn svg{width:17px;height:17px;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+/* ============ cards ============ */
+.card{
+  background:linear-gradient(180deg,rgba(255,255,255,.028),transparent 46%),var(--s1);
+  border:1px solid var(--line);border-radius:var(--r-card);
+  box-shadow:var(--shadow);
+}
+html[data-theme="light"] .card{background:var(--s1)}
+.card + .card,.card + .sect,.sect + .card{margin-top:12px}
+.card-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:15px 16px 0}
+.card-hd h3{font-size:13.5px;font-weight:600;letter-spacing:-.1px}
+.card-hd .hint{font-size:11.5px;color:var(--tx3)}
+.sect{margin:20px 4px 8px;display:flex;align-items:baseline;justify-content:space-between}
+.sect h2{font-size:11.5px;font-weight:600;color:var(--tx3);letter-spacing:.3px}
+.sect .more{font-size:11.5px;color:var(--tx3)}
+
+/* ============ hero ============ */
+.hero{padding:16px 16px 0;position:relative;overflow:hidden}
+.hero-top{display:flex;align-items:center;gap:16px}
+.ring-wrap{position:relative;width:112px;height:112px;flex:none}
+.ring{width:112px;height:112px;transform:rotate(-90deg)}
+.ring .trk{fill:none;stroke:var(--track);stroke-width:11}
+.ring .arc{fill:none;stroke:url(#gRing);stroke-width:11;stroke-linecap:round;filter:drop-shadow(0 0 9px rgba(61,220,151,.38))}
+#gRing .s1{stop-color:var(--ac)}
+#gRing .s2{stop-color:var(--ac-2)}
+#gSpark .s1{stop-color:var(--ac);stop-opacity:.32}
+#gSpark .s2{stop-color:var(--ac);stop-opacity:0}
+#sparkLine{stroke:var(--ac)}
+html[data-theme="light"] .ring .arc{filter:drop-shadow(0 0 7px rgba(15,159,104,.28))}
+.ring-c{position:absolute;inset:0;display:grid;place-content:center;text-align:center;gap:1px}
+.ring-c b{font-size:23px;font-weight:650;letter-spacing:-.8px;line-height:1;font-variant-numeric:tabular-nums}
+.ring-c b i{font-size:11px;font-style:normal;font-weight:600;color:var(--tx2);margin-left:1px}
+.ring-c span{font-size:10.5px;color:var(--tx3);letter-spacing:.3px}
+.hero-info{flex:1;min-width:0}
+.hero-k{font-size:11.5px;color:var(--tx3);letter-spacing:.2px}
+.hero-v{display:flex;align-items:baseline;gap:4px;margin-top:2px}
+.hero-v b{font-size:31px;font-weight:660;letter-spacing:-1.4px;line-height:1.05;font-variant-numeric:tabular-nums}
+.hero-v span{font-size:13px;font-weight:550;color:var(--tx2)}
+.hero-v em{font-size:11.5px;font-style:normal;color:var(--tx3);margin-left:3px;font-variant-numeric:tabular-nums}
+.spark{height:34px;margin-top:6px;margin-right:-2px}
+.spark svg{width:100%;height:34px;display:block;overflow:visible}
+.hero-stats{display:grid;grid-template-columns:repeat(3,1fr);margin-top:14px;border-top:1px solid var(--line)}
+.hero-stats div{padding:11px 0 13px;text-align:center;position:relative}
+.hero-stats div + div::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:1px;background:var(--line)}
+.hero-stats i{display:block;font-size:11px;color:var(--tx3);font-style:normal;letter-spacing:.2px}
+.hero-stats b{display:block;font-size:14.5px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+
+/* ============ zram card ============ */
+.zram{padding:15px 16px 4px}
+.zrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.zrow .t{font-size:13.5px;font-weight:600}
+.bar{height:9px;border-radius:999px;background:var(--track);margin:12px 0 8px;overflow:hidden;position:relative}
+.bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--ac),var(--ac-2));width:38%;box-shadow:0 0 12px -2px var(--ac-line)}
+.bar-lb{display:flex;justify-content:space-between;font-size:11.5px;color:var(--tx3)}
+.bar-lb b{color:var(--tx2);font-weight:550;font-variant-numeric:tabular-nums}
+.zstats{display:grid;grid-template-columns:repeat(3,1fr);margin-top:10px;border-top:1px solid var(--line)}
+.zstats div{padding:10px 0 12px}
+.zstats i{display:block;font-size:11px;color:var(--tx3);font-style:normal}
+.zstats b{display:block;font-size:14px;font-weight:600;margin-top:1px;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+.zstats b u{text-decoration:none;font-size:10.5px;color:var(--tx3);font-weight:500;margin-left:2px}
+
+/* ============ retention card ============ */
+.ret{padding:15px 16px}
+.ret-top{display:flex;align-items:center;justify-content:space-between}
+.ret-top .t{font-size:13.5px;font-weight:600}
+.ret-line{display:flex;align-items:center;justify-content:space-between;margin-top:11px;font-size:12.5px;color:var(--tx2)}
+.ret-line b{color:var(--tx);font-weight:600;font-variant-numeric:tabular-nums}
+.meter{display:flex;gap:4px;margin-top:12px}
+.meter i{flex:1;height:5px;border-radius:3px;background:var(--s3)}
+.meter i.f{background:linear-gradient(90deg,var(--ac),var(--ac-2))}
+
+/* preset stats */
+.pstats{display:grid;grid-template-columns:repeat(3,1fr);margin-top:13px;border-top:1px solid var(--line)}
+.pstats div{padding:10px 0 0}
+.pstats i{display:block;font-size:10.5px;color:var(--tx3);font-style:normal;letter-spacing:.2px}
+.pstats b{display:block;font-size:13.5px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums}
+.meter-lb{display:grid;grid-template-columns:repeat(3,1fr);text-align:center;font-size:10.5px;color:var(--tx3);margin-top:6px;letter-spacing:.2px}
+
+/* ============ actions ============ */
+.quick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.quick button{
+  display:flex;align-items:center;gap:9px;height:50px;padding:0 13px;
+  border-radius:16px;border:1px solid var(--line);background:var(--s1);
+  font-size:13px;font-weight:550;color:var(--tx);
+  transition:transform .16s,border-color .16s;
+}
+.quick button:active{transform:scale(.97);border-color:var(--line-strong)}
+.quick button.wide{grid-column:1/-1;justify-content:center}
+.quick .ic{
+  width:28px;height:28px;border-radius:9px;display:grid;place-items:center;flex:none;
+  background:var(--ac-soft);color:var(--ac);
+}
+.quick .ic.warn{background:var(--warn-soft);color:var(--warn)}
+.quick .ic svg{width:15px;height:15px;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.quick small{display:block;font-size:10.5px;color:var(--tx3);font-weight:400;margin-top:-1px}
+
+/* ============ insight ============ */
+.insight{
+  display:flex;gap:11px;padding:14px 15px;margin-top:12px;
+  border-radius:18px;border:1px solid var(--ac-line);
+  background:linear-gradient(135deg,var(--ac-soft),transparent 70%),var(--s1);
+}
+.insight .ic{width:26px;height:26px;border-radius:8px;background:var(--ac-soft);color:var(--ac);display:grid;place-items:center;flex:none}
+.insight .ic svg{width:14px;height:14px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.insight p{font-size:12.5px;color:var(--tx2);line-height:1.55}
+.insight p b{color:var(--tx);font-weight:600}
+.insight .go{
+  display:inline-flex;align-items:center;gap:3px;margin-top:7px;height:28px;padding:0 11px;
+  border-radius:999px;background:var(--ac);color:#04120c;font-size:11.5px;font-weight:650;
+}
+html[data-theme="light"] .insight .go{color:#fff}
+
+/* ============ segmented ============ */
+.seg{display:flex;gap:3px;padding:3px;border-radius:13px;background:var(--s2);border:1px solid var(--line)}
+.seg button{
+  flex:1;height:31px;border-radius:10px;font-size:12.5px;font-weight:550;color:var(--tx2);
+  transition:all .18s ease;white-space:nowrap;
+}
+.seg button.on{background:var(--s1);color:var(--tx);box-shadow:0 2px 8px -2px rgba(0,0,0,.5),inset 0 0 0 1px var(--line)}
+html[data-theme="light"] .seg button.on{background:#fff;box-shadow:0 1px 4px rgba(16,18,21,.12)}
+.seg.accent button.on{background:var(--ac);color:#04120c;box-shadow:0 4px 14px -6px var(--ac-line)}
+html[data-theme="light"] .seg.accent button.on{background:var(--ac);color:#fff;box-shadow:0 4px 14px -8px rgba(15,159,104,.6)}
+
+/* ============ setting rows ============ */
+.grp{padding:2px 0 6px}
+.row{display:flex;align-items:center;gap:12px;padding:12px 16px;min-height:56px}
+.row + .row{border-top:1px solid var(--line)}
+.row .txt{flex:1;min-width:0}
+.row .txt strong{display:block;font-size:14px;font-weight:550;letter-spacing:-.1px}
+.row .txt small{display:block;font-size:11.5px;color:var(--tx3);margin-top:2px;line-height:1.4}
+.row .val{font-size:13px;font-weight:600;color:var(--ac);font-variant-numeric:tabular-nums;flex:none}
+.row.block{display:block}
+.row.block .txt{margin-bottom:10px}
+
+/* switch */
+.sw{position:relative;width:46px;height:28px;flex:none}
+.sw input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer;z-index:2}
+.sw i{position:absolute;inset:0;border-radius:999px;background:var(--s3);transition:background .22s;pointer-events:none}
+.sw i::after{
+  content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;border-radius:50%;
+  background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.35);transition:transform .22s cubic-bezier(.3,1.4,.5,1);
+}
+.sw input:checked + i{background:var(--ac)}
+.sw input:checked + i::after{transform:translateX(18px)}
+.sw input:disabled + i{opacity:.4}
+
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips.grid{display:grid;grid-template-columns:repeat(4,1fr)}
+.chips.grid .chip-s{justify-content:center;padding:0 2px}
+.chips.scroll{flex-wrap:nowrap;overflow-x:auto;margin:0 -16px;padding:0 16px 2px;scrollbar-width:none}
+.chips.scroll::-webkit-scrollbar{display:none}
+.chip-s{
+  height:32px;padding:0 12px;border-radius:11px;border:1px solid var(--line);
+  background:var(--s2);color:var(--tx2);font-size:12.5px;font-weight:550;
+  display:inline-flex;align-items:center;gap:5px;white-space:nowrap;transition:all .16s;
+}
+.chip-s.on{background:var(--ac-soft);border-color:var(--ac-line);color:var(--ac)}
+.chip-s:disabled{opacity:.38}
+.chip-s u{text-decoration:none;font-size:10px;color:var(--tx3)}
+
+/* range */
+.range-wrap{padding:0 16px 14px}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:26px;background:transparent;display:block;
+}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:999px;background:linear-gradient(90deg,var(--ac) var(--p,50%),var(--track) var(--p,50%))}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:50%;
+  background:#fff;border:2px solid var(--ac);box-shadow:0 2px 8px rgba(0,0,0,.35);
+}
+.range-lb{display:flex;justify-content:space-between;font-size:10.5px;color:var(--tx3);margin-top:2px;font-variant-numeric:tabular-nums}
+
+/* preset summary */
+.preset{padding:14px 15px}
+.preset .line{display:flex;align-items:center;justify-content:space-between;margin-top:2px}
+.preset .line .t{font-size:13px;font-weight:600}
+.preset .desc{font-size:11.5px;color:var(--tx3);margin-top:8px;line-height:1.5}
+
+/* ============ logs ============ */
+.logbar{display:flex;gap:6px;overflow-x:auto;margin:0 -16px 12px;padding:0 16px;scrollbar-width:none}
+.logbar::-webkit-scrollbar{display:none}
+.loglist{padding:6px 0 8px}
+.logfoot{padding:10px 4px 0;font-size:10.5px;color:var(--tx3);line-height:1.5;text-align:center}
+.log{display:flex;gap:10px;padding:9px 16px;position:relative}
+.log + .log{border-top:1px solid var(--line)}
+.log .rail{width:14px;flex:none;position:relative;display:flex;justify-content:center;padding-top:5px}
+.log .rail i{width:7px;height:7px;border-radius:50%;background:var(--tx3);box-shadow:0 0 0 3px var(--s1)}
+.log.ok .rail i{background:var(--ac);box-shadow:0 0 0 3px var(--s1),0 0 10px var(--ac-line)}
+.log.warn .rail i{background:var(--warn);box-shadow:0 0 0 3px var(--s1),0 0 10px rgba(255,176,32,.4)}
+.log.err .rail i{background:var(--danger);box-shadow:0 0 0 3px var(--s1),0 0 10px rgba(255,95,87,.4)}
+.log .body{flex:1;min-width:0}
+.log .meta{display:flex;align-items:center;gap:7px;margin-bottom:2px}
+.log .tm{font-size:10.5px;color:var(--tx3);font-variant-numeric:tabular-nums;letter-spacing:.2px}
+.log .tag{
+  font-size:9.5px;font-weight:650;letter-spacing:.4px;text-transform:uppercase;
+  padding:1px 5px;border-radius:5px;background:var(--s2);color:var(--tx2);
+}
+.log.ok .tag{background:var(--ac-soft);color:var(--ac)}
+.log.warn .tag{background:var(--warn-soft);color:var(--warn)}
+.log .msg{font-size:12px;color:var(--tx2);line-height:1.55;word-break:break-word;font-family:ui-monospace,"SF Mono",Menlo,monospace}
+.log .msg em{font-style:normal;color:var(--tx);font-weight:550}
+
+/* ============ about ============ */
+.about-hd{padding:16px}
+.about-hd .v{display:flex;align-items:center;gap:8px}
+.about-hd h3{font-size:24px;font-weight:650;letter-spacing:-.8px}
+.about-hd p{font-size:11.5px;color:var(--tx3);margin-top:7px;line-height:1.55}
+.about-link{
+  display:inline-flex;align-items:center;gap:4px;margin-top:12px;height:30px;padding:0 12px;
+  border-radius:999px;border:1px solid var(--line);background:var(--s2);
+  font-size:12px;font-weight:550;color:var(--tx2);
+}
+.about-link svg{width:12px;height:12px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.kv{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;font-size:13px}
+.kv + .kv{border-top:1px solid var(--line)}
+.kv span{color:var(--tx2)}
+.kv b{font-weight:550;font-variant-numeric:tabular-nums;color:var(--tx)}
+.cap{display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:13px}
+.cap + .cap{border-top:1px solid var(--line)}
+.cap .n{flex:1;color:var(--tx2)}
+.cap .s{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px}
+.cap .s.y{color:var(--ac);background:var(--ac-soft)}
+.cap .s.n{color:var(--tx2);background:var(--s2)}
+.cap .s.w{color:var(--warn);background:var(--warn-soft)}
+.danger-zone{padding:4px 0 6px}
+.danger-zone button{
+  display:flex;align-items:center;justify-content:space-between;width:100%;
+  padding:13px 16px;font-size:13.5px;color:var(--danger);
+}
+.danger-zone button + button{border-top:1px solid var(--line)}
+.danger-zone button .arw{color:var(--tx3)}
+.danger-zone button svg{width:15px;height:15px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.theme-row{display:flex;gap:6px;padding:0 16px 14px}
+
+/* ============ tabbar ============ */
+.tabbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:30;margin-inline:auto;
+  width:100%;max-width:520px;
+  display:grid;grid-template-columns:repeat(4,1fr);
+  padding:8px 8px calc(8px + env(safe-area-inset-bottom));
+  background:color-mix(in srgb,var(--bg) 82%,transparent);
+  -webkit-backdrop-filter:saturate(180%) blur(22px);backdrop-filter:saturate(180%) blur(22px);
+  border-top:1px solid var(--line);
+}
+.tabbar button{
+  display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0 4px;
+  color:var(--tx3);transition:color .18s;
+}
+.tabbar button svg{width:21px;height:21px;stroke:currentColor;stroke-width:1.85;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.tabbar button span{font-size:10px;font-weight:550;letter-spacing:.1px}
+.tabbar button.on{color:var(--ac)}
+.tabbar button.on svg{filter:drop-shadow(0 0 7px var(--ac-line))}
+
+/* ============ sticky save ============ */
+.savebar{
+  position:fixed;left:0;right:0;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom));
+  margin-inline:auto;
+  width:100%;max-width:520px;padding:10px var(--pad) 12px;z-index:29;
+  background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--bg) 92%,transparent) 34%);
+  display:none;
+}
+.savebar.show{display:block}
+.savebar button{
+  width:100%;height:52px;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;
+  background:linear-gradient(135deg,var(--ac),var(--ac-2));color:#04120c;
+  box-shadow:0 10px 26px -12px var(--ac-line);
+}
+html[data-theme="light"] .savebar button{color:#fff}
+.savebar button .lbl{font-size:14.5px;font-weight:650;letter-spacing:-.1px}
+.savebar button .sub{font-size:10px;font-weight:550;opacity:.7;margin-top:1px}
+
+/* ============ sheet ============ */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .24s;z-index:40;backdrop-filter:blur(3px)}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{
+  position:fixed;left:50%;bottom:0;transform:translate(-50%,100%);width:100%;max-width:520px;z-index:41;
+  background:var(--s1);border-radius:26px 26px 0 0;border-top:1px solid var(--line-strong);
+  padding:10px 20px calc(20px + env(safe-area-inset-bottom));
+  transition:transform .3s cubic-bezier(.25,1,.4,1);
+}
+.sheet.on{transform:translate(-50%,0)}
+.sheet .grip{width:38px;height:4px;border-radius:99px;background:var(--line-strong);margin:0 auto 16px}
+.sheet h4{font-size:16.5px;font-weight:650;letter-spacing:-.3px}
+.sheet p{font-size:12.5px;color:var(--tx2);margin-top:8px;line-height:1.6}
+.sheet p.mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;color:var(--tx3);word-break:break-all}
+.sheet .sheetlog{
+  margin-top:10px;padding:11px 12px;border-radius:12px;background:var(--s2);border:1px solid var(--line);
+  font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;line-height:1.6;color:var(--tx2);
+  white-space:pre-wrap;word-break:break-word;max-height:168px;overflow-y:auto;
+}
+.sheet .warnbox{margin-top:12px;padding:11px 13px;border-radius:13px;background:var(--warn-soft);border:1px solid rgba(255,176,32,.28);font-size:11.5px;color:var(--warn);line-height:1.55}
+.sheet .btns{display:flex;gap:10px;margin-top:18px}
+.sheet .btns button{flex:1;height:48px;border-radius:14px;font-size:14px;font-weight:600}
+.sheet .btns .ghost{background:var(--s2);color:var(--tx2);border:1px solid var(--line)}
+.sheet .btns .prime{background:var(--danger);color:#fff}
+.sheet .btns .prime.ok{background:var(--ac);color:#04120c}
+html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
+
+/* ============ toast ============ */
+.toast{
+  position:fixed;left:50%;bottom:calc(var(--nav-h) + 74px);transform:translate(-50%,12px);
+  padding:10px 18px;border-radius:999px;font-size:12.5px;font-weight:550;
+  background:var(--s3);color:var(--tx);border:1px solid var(--line-strong);
+  box-shadow:0 14px 34px -14px rgba(0,0,0,.8);
+  opacity:0;pointer-events:none;transition:all .26s;z-index:50;white-space:nowrap;max-width:88vw;
+}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ================= topbar ================= -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="mark">
+        <svg viewBox="0 0 24 24"><path d="M12 3v6"/><path d="M12 15v6"/><path d="M4.5 9h15"/><path d="M4.5 15h15"/><rect x="3" y="5" width="18" height="14" rx="4"/></svg>
+      </div>
+      <div>
+        <h1>MemKeep++</h1>
+        <div class="sub" id="brandSub">内存压缩 · 后台保活</div>
+      </div>
+    </div>
+    <div class="top-right">
+      <span class="chip ok" id="stateChip"><span class="dot"></span>已生效</span>
+      <button class="icon-btn" id="refreshBtn" aria-label="刷新">
+        <svg viewBox="0 0 24 24"><path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1"/><path d="M20.5 4v5h-5"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ================= 概览 ================= -->
+    <section class="view on" id="view-monitor">
+      <div class="card hero">
+        <div class="hero-top">
+          <div class="ring-wrap">
+            <svg class="ring" viewBox="0 0 112 112">
+              <defs>
+                <linearGradient id="gRing" x1="0" y1="0" x2="1" y2="1">
+                  <stop class="s1" offset="0"/>
+                  <stop class="s2" offset="1"/>
+                </linearGradient>
+              </defs>
+              <circle class="trk" cx="56" cy="56" r="47"/>
+              <circle class="arc" id="ringArc" cx="56" cy="56" r="47"
+                      stroke-dasharray="295.3" stroke-dashoffset="121"/>
+            </svg>
+            <div class="ring-c"><b id="ringPct">59<i>%</i></b><span>占用</span></div>
+          </div>
+          <div class="hero-info">
+            <div class="hero-k">已用内存</div>
+            <div class="hero-v"><b class="num" id="memUsed">6.9</b><span>GB</span><em>/ 11.7 GB</em></div>
+            <div class="spark">
+              <svg id="sparkSvg" viewBox="0 0 180 34" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="gSpark" x1="0" y1="0" x2="0" y2="1">
+                    <stop class="s1" offset="0"/>
+                    <stop class="s2" offset="1"/>
+                  </linearGradient>
+                </defs>
+                <path id="sparkFill" fill="url(#gSpark)" d=""/>
+                <polyline id="sparkLine" fill="none" stroke-width="1.9"
+                          stroke-linecap="round" stroke-linejoin="round" points=""/>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <div class="hero-stats">
+          <div><i>可用</i><b class="num">4.8 GB</b></div>
+          <div><i>缓存</i><b class="num">3.6 GB</b></div>
+          <div><i>ZRAM 已压</i><b class="num" id="zramUsedMini">3.0 GB</b></div>
+        </div>
+      </div>
+
+      <div class="card zram">
+        <div class="zrow">
+          <div class="t">ZRAM 压缩内存</div>
+          <span class="chip ok" style="height:24px;font-size:11px"><span class="dot"></span>zstd</span>
+        </div>
+        <div class="bar"><i id="zramBar"></i></div>
+        <div class="bar-lb">
+          <span>已用 <b class="num">3.0 GB</b> / 8.0 GB</span>
+          <span class="num">38%</span>
+        </div>
+        <div class="zstats">
+          <div><i>压缩比</i><b class="num">3.12<u>×</u></b></div>
+          <div><i>原始占用</i><b class="num">9.4<u>GB</u></b></div>
+          <div><i>净节省</i><b class="num" style="color:var(--ac)">6.4<u>GB</u></b></div>
+        </div>
+      </div>
+
+      <div class="card ret">
+        <div class="ret-top">
+          <div class="t">后台保活</div>
+          <span class="chip" style="height:24px;font-size:11px;color:var(--ac);border-color:var(--ac-line);background:var(--ac-soft)">增强</span>
+        </div>
+        <div class="ret-line"><span>缓存进程上限</span><b class="num">256</b></div>
+        <div class="ret-line"><span>本次开机存活后台</span><b class="num">42 <em style="font-style:normal;color:var(--tx3);font-weight:400">个</em></b></div>
+        <div class="ret-line"><span>LMKD 策略</span><b style="font-weight:550">现代 (PSI)</b></div>
+      </div>
+
+      <div class="quick">
+        <button data-action="apply">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 4.5 13.5H11l-1 8.5L19.5 10H13Z"/></svg></span>
+          <span>立即应用<small>无需重启</small></span>
+        </button>
+        <button data-action="dropcache">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg></span>
+          <span>释放页缓存<small>回收空闲 page cache</small></span>
+        </button>
+        <button class="wide" data-action="rezram">
+          <span class="ic warn"><svg viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 2.4 17.5A2 2 0 0 0 4.1 20.5h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></span>
+          <span>重建 ZRAM 分区<small>短暂中断 swap，需确认</small></span>
+        </button>
+      </div>
+
+      <div class="insight">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V16h8v-1.3A7 7 0 0 0 12 2Z"/></svg></span>
+        <div>
+          <p>容量 <b>auto</b> 在本机被钳制为 <b>8.0 GB</b>（物理内存 12 GB）。改为 <b>12 GB</b> 可多容纳约 4 GB 压缩页，适合重负载多开。</p>
+          <button class="go" data-action="suggest">改用 12 GB
+            <svg viewBox="0 0 24 24" style="width:11px;height:11px;stroke:currentColor;stroke-width:2.6;fill:none;stroke-linecap:round;stroke-linejoin:round"><path d="m9 6 6 6-6 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 调节 ================= -->
+    <section class="view" id="view-tune">
+      <div class="card preset">
+        <div class="line"><div class="t">后台保活强度</div><span class="hint" style="font-size:11.5px;color:var(--tx3)">保存即生效</span></div>
+        <div class="seg accent" id="presetSeg" style="margin-top:11px">
+          <button data-preset="balanced">均衡</button>
+          <button data-preset="strong" class="on">增强</button>
+          <button data-preset="max">极限</button>
+        </div>
+        <div class="desc" id="presetDesc">较强保活：把后台页优先压进 zram 而不是直接回收，日常多开推荐。</div>
+        <div class="pstats">
+          <div><i>swappiness</i><b class="num" id="pSw">100</b></div>
+          <div><i>缓存进程上限</i><b class="num" id="pCache">256</b></div>
+          <div><i>水位系数</i><b class="num" id="pWm">90</b></div>
+        </div>
+      </div>
+
+      <div class="sect"><h2>ZRAM</h2><span class="more">重建需重启</span></div>
+      <div class="card grp">
+        <div class="row">
+          <div class="txt"><strong>启用 ZRAM 重建</strong><small>开机时按配置重建压缩交换区</small></div>
+          <label class="sw"><input type="checkbox" id="swZram" checked><i></i></label>
+        </div>
+        <div class="row block">
+          <div class="txt" style="display:flex;align-items:center;justify-content:space-between">
+            <strong>容量</strong><span class="val" id="zramSizeVal">auto · 8.0 GB</span>
+          </div>
+          <div class="chips grid" id="sizeChips">
+            <button class="chip-s on" data-size="auto">auto</button>
+            <button class="chip-s" data-size="8G">8 GB</button>
+            <button class="chip-s" data-size="12G">12 GB</button>
+            <button class="chip-s" data-size="16G">16 GB</button>
+            <button class="chip-s" data-size="50%">50%</button>
+            <button class="chip-s" data-size="75%">75%</button>
+            <button class="chip-s" data-size="100%">100%</button>
+            <button class="chip-s" data-size="125%">125%</button>
+          </div>
+        </div>
+        <div class="row block">
+          <div class="txt" style="display:flex;align-items:center;justify-content:space-between">
+            <strong>压缩算法</strong><span class="val" id="algVal">auto · zstd</span>
+          </div>
+          <div class="chips" id="algChips">
+            <button class="chip-s on" data-alg="auto">auto</button>
+            <button class="chip-s" data-alg="zstd">zstd</button>
+            <button class="chip-s" data-alg="lz4">lz4</button>
+            <button class="chip-s" data-alg="lzo-rle" disabled>lzo-rle</button>
+          </div>
+        </div>
+        <div class="row">
+          <div class="txt"><strong>保留 backing device</strong><small>原 zram 存在后端设备时予以保留</small></div>
+          <label class="sw"><input type="checkbox" checked><i></i></label>
+        </div>
+      </div>
+
+      <div class="sect"><h2>后台保活</h2></div>
+      <div class="card grp">
+        <div class="row block">
+          <div class="txt" style="display:flex;align-items:center;justify-content:space-between">
+            <strong>缓存进程上限</strong><span class="val" id="cacheVal">256</span>
+          </div>
+          <div class="range-wrap" style="padding:4px 0 0">
+            <input type="range" id="cacheRange" min="64" max="512" step="32" value="256" style="--p:43%">
+            <div class="range-lb"><span>64 · 省内存</span><span>512 · 耐多开</span></div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="txt"><strong>延迟重应用</strong><small>开机稳定 90 秒后补一次关键参数</small></div>
+          <label class="sw"><input type="checkbox" checked><i></i></label>
+        </div>
+      </div>
+
+      <div class="sect"><h2>高级</h2></div>
+      <div class="card grp">
+        <div class="row">
+          <div class="txt"><strong>VM 内核参数</strong><small>swappiness · watermark · min_free_kbytes 等 6 项</small></div>
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--tx3);stroke-width:2;fill:none;stroke-linecap:round"><path d="m9 6 6 6-6 6"/></svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 日志 ================= -->
+    <section class="view" id="view-logs">
+      <div class="logbar">
+        <button class="chip-s on" data-filter="all">全部 <u>10</u></button>
+        <button class="chip-s" data-filter="zram">ZRAM</button>
+        <button class="chip-s" data-filter="vm">VM</button>
+        <button class="chip-s" data-filter="bg">保活</button>
+        <button class="chip-s" data-filter="err">异常</button>
+      </div>
+      <div class="card loglist" id="logList"></div>
+      <div class="logfoot" id="logFoot"></div>
+      <div class="quick" style="margin-top:10px">
+        <button data-action="copylog">
+          <span class="ic"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg></span>
+          <span>复制日志<small>粘贴到反馈帖</small></span>
+        </button>
+        <button data-action="clearlog">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg></span>
+          <span>清空日志<small>不影响当前参数</small></span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ================= 关于 ================= -->
+    <section class="view" id="view-about">
+      <div class="card about-hd">
+        <div class="v"><h3 class="num">v2.2.0</h3><span class="chip ok" style="height:23px;font-size:11px">已是最新</span></div>
+        <p>内核级内存管理模块：重建 ZRAM 压缩交换区、调整 VM 水位与 LMKD 策略，让后台应用留得更久。</p>
+        <button class="about-link" data-action="update"><span id="updLabel">检查更新</span>
+          <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
+        </button>
+      </div>
+
+      <div class="sect"><h2>设备</h2></div>
+      <div class="card">
+        <div class="kv"><span>机型</span><b>realme GT7 Pro</b></div>
+        <div class="kv"><span>物理内存</span><b class="num">11.7 GB</b></div>
+        <div class="kv"><span>系统</span><b>Android 15 · SDK 35</b></div>
+        <div class="kv"><span>内核</span><b class="num">6.6.56-android15</b></div>
+        <div class="kv"><span>Root 方案</span><b>KernelSU 1.0.5</b></div>
+      </div>
+
+      <div class="sect"><h2>能力检测</h2><span class="more">按本机内核实测</span></div>
+      <div class="card">
+        <div class="cap"><span class="n">zram0 设备</span><span class="s y">可用</span></div>
+        <div class="cap"><span class="n">zstd / lz4 算法</span><span class="s y">可用</span></div>
+        <div class="cap"><span class="n">多级重压缩 (recompress)</span><span class="s y">可用</span></div>
+        <div class="cap"><span class="n">writeback 回写</span><span class="s n">不支持</span></div>
+        <div class="cap"><span class="n">MGLRU 多代 LRU</span><span class="s w">部分</span></div>
+      </div>
+
+      <div class="sect"><h2>设置</h2></div>
+      <div class="card grp">
+        <div class="row block" style="padding-bottom:0">
+          <div class="txt"><strong>外观</strong><small>跟随系统或固定深/浅色</small></div>
+        </div>
+        <div class="theme-row" style="padding-top:10px">
+          <div class="seg" id="themeSeg" style="width:100%">
+            <button data-theme-val="auto">跟随系统</button>
+            <button data-theme-val="dark" class="on">深色</button>
+            <button data-theme-val="light">浅色</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sect"><h2>危险操作</h2></div>
+      <div class="card danger-zone">
+        <button data-action="reset"><span>恢复出厂参数</span><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+        <button data-action="uninstall"><span>卸载模块（重启后生效）</span><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="savebar" id="saveBar">
+    <button id="saveBtn"><span class="lbl">保存并应用</span><span class="sub" id="saveSub">VM 与保活立即生效 · ZRAM 需重启</span></button>
+  </div>
+
+  <nav class="tabbar" id="tabbar">
+    <button data-tab="monitor" class="on">
+      <svg viewBox="0 0 24 24"><path d="m12 14 3.5-3.5"/><path d="M3.4 19a10 10 0 1 1 17.2 0"/></svg><span>概览</span>
+    </button>
+    <button data-tab="tune">
+      <svg viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h9M17 18h3"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="15" cy="18" r="2"/></svg><span>调节</span>
+    </button>
+    <button data-tab="logs">
+      <svg viewBox="0 0 24 24"><path d="m5 8 4 4-4 4"/><path d="M12 16h7"/></svg><span>日志</span>
+    </button>
+    <button data-tab="about">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg><span>关于</span>
+    </button>
+  </nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet">
+  <div class="grip"></div>
+  <h4 id="sheetTitle">重建 ZRAM 分区？</h4>
+  <div id="sheetBody"><p>将执行 swapoff → reset → 重新设置容量与算法 → mkswap → swapon。整个过程中压缩交换区会短暂不可用，系统可能在此期间回收部分后台进程。</p></div>
+  <div class="warnbox" id="sheetWarn">建议在息屏或空闲时执行；如需恢复默认值，请在「关于 → 恢复出厂参数」中操作。</div>
+  <div class="btns">
+    <button class="ghost" id="sheetCancel">取消</button>
+    <button class="prime" id="sheetOk">确认重建</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ---------------- tiny helpers ---------------- */
+  const $ = (s,r)=> (r||document).querySelector(s);
+  const $$ = (s,r)=> Array.from((r||document).querySelectorAll(s));
+  const params = new URLSearchParams(location.search);
+
+  /* ---------------- theme ---------------- */
+  const THEME_KEY = 'memkeep:theme';
+  function applyTheme(mode){
+    let t = mode;
+    if(mode === 'auto') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+    const seg = $('#themeSeg');
+    if(seg) $$('button',seg).forEach(b=>b.classList.toggle('on', b.dataset.themeVal === mode));
+  }
+  const forcedTheme = params.get('theme');
+  let savedTheme = 'dark';
+  try{ savedTheme = localStorage.getItem(THEME_KEY) || 'dark'; }catch(e){}
+  applyTheme(forcedTheme || savedTheme);
+
+  $('#themeSeg') && $('#themeSeg').addEventListener('click', e=>{
+    const b = e.target.closest('button[data-theme-val]');
+    if(!b) return;
+    applyTheme(b.dataset.themeVal);
+    try{ localStorage.setItem(THEME_KEY, b.dataset.themeVal); }catch(e){}
+  });
+
+  /* ---------------- toast ---------------- */
+  const toastEl = $('#toast');
+  let toastT;
+  function toast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('on');
+    clearTimeout(toastT);
+    toastT = setTimeout(()=>toastEl.classList.remove('on'), 1900);
+  }
+
+  /* ---------------- 在线更新 ---------------- */
+  // 版本源：与 module.prop 的 versionCode 同编码（MAJOR*10000 + MINOR*100 + PATCH）
+  const APP = {version:'v2.2.0', code:20200};
+  const UPD_REPO = 'qvq9999/MemKeep';
+  const UPD_SOURCES = [
+    'https://cdn.jsdelivr.net/gh/' + UPD_REPO + '@main/update.json',
+    'https://raw.githubusercontent.com/' + UPD_REPO + '/main/update.json'
+  ];
+
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const shq = v => "'" + String(v).replace(/'/g, "'\\''") + "'";
+
+  function ksuApi(){
+    if(window.ksu && typeof window.ksu.exec === 'function') return window.ksu;
+    if(window.KSU && typeof window.KSU.exec === 'function') return window.KSU;
+    return null;
+  }
+  // 兼容 ksu.exec 的三种桥接签名（callback / Promise / 同步返回）
+  function exec(cmd){
+    const api = ksuApi();
+    if(!api) return Promise.reject(new Error('no ksu bridge'));
+    return new Promise((res, rej)=>{
+      let done = false;
+      const finish = (errno, out, err)=>{
+        if(done) return; done = true;
+        if(typeof errno === 'number'){
+          if(errno !== 0) rej(new Error(err || out || ('exit ' + errno)));
+          else res(out || '');
+        } else res(String(errno == null ? '' : errno));
+      };
+      try{
+        if(api.exec.length >= 3) api.exec(cmd, {}, finish);
+        else if(api.exec.length === 2) api.exec(cmd, finish);
+        else {
+          const r = api.exec(cmd);
+          if(r && typeof r.then === 'function') r.then(res, rej);
+          else res(String(r == null ? '' : r));
+        }
+      }catch(e){ rej(e); }
+    });
+  }
+  // fetch 优先；WebView 若被 CORS/证书拦住，退到 root shell 的 curl / wget
+  async function httpGet(url, ms){
+    try{
+      const ac = new AbortController();
+      const t = setTimeout(()=>ac.abort(), ms || 6000);
+      const r = await fetch(url, { signal: ac.signal, cache: 'no-store' });
+      clearTimeout(t);
+      if(r.ok) return await r.text();
+    }catch(e){}
+    for(const bin of ['curl -fsSL', 'wget -q -O -']){
+      try{
+        const out = await exec(bin + ' ' + shq(url) + ' 2>/dev/null');
+        if(out && out.trim()) return out;
+      }catch(e){}
+    }
+    return null;
+  }
+  function openUrl(u){
+    if(ksuApi()){ exec('am start -a android.intent.action.VIEW -d ' + shq(u) + ' >/dev/null 2>&1').catch(()=>{}); }
+    else window.open(u, '_blank', 'noopener');
+  }
+
+  async function checkUpdate(){
+    const btn = $('[data-action="update"]');
+    const label = $('#updLabel');
+    if(btn) btn.disabled = true;
+    if(label) label.textContent = '检查中…';
+    try{
+      // 两个源并行取，取先回来的那份；都失败才算不可达（串行等待会让按钮转很久）
+      const got = await Promise.all(UPD_SOURCES.map(src=>httpGet(src, 5000)));
+      let raw = null;
+      for(const g of got){ if(g){ raw = g; break; } }
+
+      if(!raw){
+        openSheet({
+          title: '暂时连不上更新源',
+          html: '<p>模块已配置在线更新地址，但这次没能取回版本信息。</p>' +
+                '<p class="mono">' + esc(UPD_SOURCES[1]) + '</p>' +
+                '<p>常见原因：设备未联网、GitHub / jsDelivr 被运营商拦截，或仓库还没发布首个 Release。</p>' +
+                '<p>不影响使用 —— 更新也可以直接回 KernelSU 管理器的模块卡片里点「更新」。</p>',
+          ok: '知道了',
+          single: true
+        });
+        return;
+      }
+
+      let info;
+      try{ info = JSON.parse(raw); }
+      catch(e){ toast('更新信息格式异常'); return; }
+
+      const remote = Number(info.versionCode) || 0;
+      if(remote <= APP.code){
+        toast(remote === APP.code ? ('已是最新版本 ' + APP.version) : '当前版本比线上更新（开发版）');
+        return;
+      }
+
+      let log = '';
+      if(info.changelog){
+        try{
+          const txt = await httpGet(info.changelog, 5000);
+          if(txt){
+            const lines = txt.trim().split(/\r?\n/);
+            log = lines.slice(0, 26)
+              .map(l=>l.replace(/^#+\s*/, '').replace(/^[-*]\s*/, '· '))
+              .join('\n').replace(/\n{3,}/g, '\n\n');
+            if(lines.length > 26) log += '\n…';
+          }
+        }catch(e){}
+      }
+
+      openSheet({
+        title: '发现新版本 ' + (info.version || ''),
+        html: '<p>' + esc(APP.version) + ' → <b style="color:var(--ac)">' + esc(info.version || '') + '</b>' +
+              '（versionCode ' + remote + '）</p>' +
+              (log ? '<pre class="sheetlog">' + esc(log) + '</pre>' : '<p>该版本未提供更新日志。</p>') +
+              '<p>安装由 root 管理器完成：回到 KernelSU → 模块 → MemKeep++，卡片上会出现「更新」按钮。</p>',
+        ok: '知道了',
+        cancel: '打开下载页',
+        onCancel: ()=> openUrl(info.zipUrl || ('https://github.com/' + UPD_REPO + '/releases'))
+      });
+    } finally {
+      if(btn) btn.disabled = false;
+      if(label) label.textContent = '检查更新';
+    }
+  }
+
+  /* ---------------- tabs ---------------- */
+  const TABS = ['monitor','tune','logs','about'];
+  function setTab(name){
+    if(!TABS.includes(name)) name = 'monitor';
+    TABS.forEach(t=>{
+      $('#view-'+t).classList.toggle('on', t === name);
+      $('.tabbar button[data-tab="'+t+'"]').classList.toggle('on', t === name);
+    });
+    $('#saveBar').classList.toggle('show', name === 'tune');
+    window.scrollTo(0,0);
+  }
+  $('#tabbar').addEventListener('click', e=>{
+    const b = e.target.closest('button[data-tab]');
+    if(!b) return;
+    setTab(b.dataset.tab);
+    history.replaceState(null,'','#'+b.dataset.tab);
+  });
+
+  /* ---------------- sparkline ---------------- */
+  const sparkData = [52,54,53,56,58,57,55,58,61,59,57,60,63,62,60,58,61,64,62,59,57,60,58,56,59,62,61,59,57,59,58,57,59];
+  function drawSpark(){
+    const w = 180, h = 34, n = sparkData.length;
+    const min = Math.min.apply(null, sparkData) - 4;
+    const max = Math.max.apply(null, sparkData) + 2;
+    const pts = sparkData.map((v,i)=>{
+      const x = (i/(n-1))*w;
+      const y = h - ((v-min)/(max-min))*h;
+      return x.toFixed(1)+','+y.toFixed(1);
+    });
+    $('#sparkLine').setAttribute('points', pts.join(' '));
+    $('#sparkFill').setAttribute('d', 'M0,'+h+' L'+pts.join(' L')+' L'+w+','+h+' Z');
+  }
+  drawSpark();
+
+  /* ---------------- mock state ---------------- */
+  const PRESETS = {
+    balanced: {desc:'较稳妥：压缩与回收之间取平衡，功耗与延迟接近原厂。', sw:80,  cache:128, wm:100},
+    strong:   {desc:'较强保活：后台页优先压进 zram 而不是直接回收，日常多开推荐。', sw:100, cache:256, wm:90},
+    max:      {desc:'极限保活：进一步压低内存水位，后台留存最多；功耗与偶发卡顿风险上升。', sw:120, cache:384, wm:75}
+  };
+
+  /* ---------------- 保活强度 ---------------- */
+  function applyPreset(key, silent){
+    const p = PRESETS[key];
+    if(!p) return;
+    $$('#presetSeg button').forEach(x=>x.classList.toggle('on', x.dataset.preset === key));
+    $('#presetDesc').textContent = p.desc;
+    $('#pSw').textContent = p.sw;
+    $('#pCache').textContent = p.cache;
+    $('#pWm').textContent = p.wm;
+    const r = $('#cacheRange');
+    r.value = p.cache;
+    $('#cacheVal').textContent = p.cache;
+    r.style.setProperty('--p', ((p.cache-64)/(512-64)*100)+'%');
+    if(!silent) markDirty();
+  }
+  $('#presetSeg').addEventListener('click', e=>{
+    const b = e.target.closest('button[data-preset]');
+    if(!b) return;
+    applyPreset(b.dataset.preset);
+  });
+
+  $('#sizeChips').addEventListener('click', e=>{
+    const b = e.target.closest('button[data-size]');
+    if(!b) return;
+    $$('#sizeChips .chip-s').forEach(x=>x.classList.toggle('on', x === b));
+    const map = {auto:'auto · 8.0 GB','8G':'8 GB','12G':'12 GB','16G':'16 GB','50%':'50% · 5.9 GB','75%':'75% · 8.8 GB','100%':'100% · 11.7 GB','125%':'125% · 14.6 GB'};
+    $('#zramSizeVal').textContent = map[b.dataset.size] || b.dataset.size;
+    markDirty();
+  });
+
+  $('#algChips').addEventListener('click', e=>{
+    const b = e.target.closest('button[data-alg]');
+    if(!b || b.disabled) return;
+    $$('#algChips .chip-s').forEach(x=>x.classList.toggle('on', x === b));
+    $('#algVal').textContent = b.dataset.alg === 'auto' ? 'auto · zstd' : b.dataset.alg;
+    markDirty();
+  });
+
+  const cacheRange = $('#cacheRange');
+  cacheRange.addEventListener('input', ()=>{
+    const v = +cacheRange.value;
+    $('#cacheVal').textContent = v;
+    $('#pCache').textContent = v;
+    cacheRange.style.setProperty('--p', ((v-64)/(512-64)*100)+'%');
+    markDirty();
+  });
+
+  let dirtyCount = 0;
+  function markDirty(){
+    dirtyCount++;
+    $('#saveSub').textContent = dirtyCount + ' 项修改未应用';
+  }
+
+  $('#saveBtn').addEventListener('click', ()=>{
+    const btn = $('#saveBtn');
+    dirtyCount = 0;
+    $('#saveSub').textContent = '已写入 config.conf';
+    toast('配置已保存并应用');
+    setTimeout(()=>{ $('#saveSub').textContent = 'VM 与保活立即生效 · ZRAM 需重启'; }, 2200);
+  });
+
+  /* ---------------- logs ---------------- */
+  const LOGS = [
+    {t:'17:12:02', lv:'ok',   tag:'BOOT', msg:'service started'},
+    {t:'17:12:03', lv:'ok',   tag:'ZRAM', msg:'zram applied: size=8589934592, algorithm=zstd'},
+    {t:'17:12:03', lv:'ok',   tag:'VM',   msg:'vm tuning applied: mode=strong min_free_kbytes=46720'},
+    {t:'17:12:04', lv:'ok',   tag:'LMK',  msg:'lmk props applied'},
+    {t:'17:12:41', lv:'ok',   tag:'BG',   msg:'background retention applied: mode=strong'},
+    {t:'17:14:33', lv:'info', tag:'MANUAL', msg:'manual apply started'},
+    {t:'17:14:34', lv:'ok',   tag:'VM',   msg:'vm tuning applied: mode=strong min_free_kbytes=46720'},
+    {t:'17:14:34', lv:'ok',   tag:'BG',   msg:'background retention applied: mode=strong'},
+    {t:'17:15:10', lv:'warn', tag:'ZRAM', msg:'configured algorithm lzo-rle unsupported, fallback to zstd'},
+    {t:'17:16:02', lv:'ok',   tag:'MANUAL', msg:'manual apply finished; reboot to rebuild zram'}
+  ];
+  const lvClass = {ok:'ok', warn:'warn', err:'err', info:''};
+  function renderLogs(filter){
+    const box = $('#logList');
+    const list = LOGS.filter(l=>{
+      if(!filter || filter === 'all') return true;
+      if(filter === 'err') return l.lv === 'warn' || l.lv === 'err';
+      const map = {zram:'ZRAM', vm:'VM', bg:'BG'};
+      return l.tag === map[filter];
+    });
+    box.innerHTML = list.map(l=>
+      '<div class="log '+lvClass[l.lv]+'">'+
+        '<div class="rail"><i></i></div>'+
+        '<div class="body">'+
+          '<div class="meta"><span class="tm">'+l.t+'</span><span class="tag">'+l.tag+'</span></div>'+
+          '<div class="msg">'+l.msg.replace(/(size|algorithm|mode|min_free_kbytes)=([^\s,;]+)/g,'$1=<em>$2</em>')+'</div>'+
+        '</div>'+
+      '</div>'
+    ).join('') || '<div style="padding:26px 16px;text-align:center;color:var(--tx3);font-size:12.5px">该筛选下暂无记录</div>';
+    const foot = $('#logFoot');
+    if(foot) foot.textContent = '显示 ' + list.length + ' 条 · 日志上限 64 KB，超出后自动保留最近 100 行';
+  }
+  renderLogs('all');
+  $('.logbar').addEventListener('click', e=>{
+    const b = e.target.closest('button[data-filter]');
+    if(!b) return;
+    $$('.logbar .chip-s').forEach(x=>x.classList.toggle('on', x === b));
+    renderLogs(b.dataset.filter);
+  });
+
+  /* ---------------- sheet ---------------- */
+  let sheetOnOk = null, sheetOnCancel = null;
+  function openSheet(o){
+    $('#sheetTitle').textContent = o.title || '';
+    $('#sheetBody').innerHTML = o.html || ('<p>' + esc(o.text || '') + '</p>');
+    const warn = $('#sheetWarn');
+    warn.textContent = o.warn || '';
+    warn.style.display = o.warn ? 'block' : 'none';
+    const ok = $('#sheetOk'), cancel = $('#sheetCancel');
+    ok.textContent = o.ok || '确认';
+    ok.className = 'prime' + (o.danger ? '' : ' ok');
+    cancel.textContent = o.cancel || '取消';
+    // 默认给"取消"出口；只有纯告知型弹层（single:true）才收成单键
+    cancel.style.display = o.single ? 'none' : '';
+    sheetOnOk = o.onOk || null;
+    sheetOnCancel = o.onCancel || null;
+    $('#scrim').classList.add('on');
+    $('#sheet').classList.add('on');
+  }
+  function closeSheet(){
+    $('#scrim').classList.remove('on');
+    $('#sheet').classList.remove('on');
+  }
+  $('#scrim').addEventListener('click', closeSheet);
+  $('#sheetCancel').addEventListener('click', ()=>{ const f = sheetOnCancel; closeSheet(); f && f(); });
+  $('#sheetOk').addEventListener('click', ()=>{ const f = sheetOnOk; closeSheet(); f && f(); });
+
+  /* ---------------- actions ---------------- */
+  document.addEventListener('click', e=>{
+    const b = e.target.closest('[data-action]');
+    if(!b) return;
+    const a = b.dataset.action;
+    if(a === 'apply'){
+      toast('参数已应用 · 无需重启');
+    } else if(a === 'dropcache'){
+      toast('已回收 782 MB 页缓存');
+    } else if(a === 'rezram'){
+      openSheet({
+        title:'重建 ZRAM 分区？',
+        text:'将执行 swapoff → reset → 重设容量与算法 → mkswap → swapon。过程中压缩交换区短暂不可用，系统可能回收部分后台进程。',
+        warn:'建议息屏或空闲时执行。若内核重启后 zram 未就绪，模块会在 service 阶段自动重试。',
+        ok:'确认重建',
+        onOk:()=> toast('正在重建… 完成后将提示')
+      });
+    } else if(a === 'suggest'){
+      $$('#sizeChips .chip-s').forEach(x=>x.classList.toggle('on', x.dataset.size === '12G'));
+      $('#zramSizeVal').textContent = '12 GB';
+      markDirty();
+      toast('已选 12 GB，保存后重启生效');
+    } else if(a === 'copylog'){
+      toast('日志已复制到剪贴板');
+    } else if(a === 'update'){
+      checkUpdate();
+    } else if(a === 'clearlog'){
+      openSheet({
+        title:'清空日志文件？',
+        text:'将删除 memkeep.log，不影响当前已应用的内核参数与配置。',
+        warn:'',
+        ok:'清空',
+        danger:true,
+        onOk:()=> toast('日志已清空')
+      });
+    } else if(a === 'reset'){
+      openSheet({
+        title:'恢复出厂参数？',
+        text:'将把 config.conf 重置为默认值（auto 容量 / auto 算法 / 增强保活），并重新应用 VM 参数。',
+        warn:'不会自动重建 ZRAM，需重启一次才会恢复默认压缩容量。',
+        ok:'恢复默认',
+        danger:true,
+        onOk:()=> toast('已恢复默认参数')
+      });
+    } else if(a === 'uninstall'){
+      openSheet({
+        title:'卸载模块？',
+        text:'将标记模块为移除状态，重启后不再加载，同时清除本模块写入的 device_config 与属性。',
+        warn:'该操作不可在应用内撤销，只能重新刷入 ZIP。',
+        ok:'卸载',
+        danger:true,
+        onOk:()=> toast('已标记卸载，重启后生效')
+      });
+    }
+  });
+
+  $('#refreshBtn').addEventListener('click', ()=>{
+    const btn = $('#refreshBtn');
+    btn.style.transition = 'transform .5s ease';
+    btn.style.transform = 'rotate(360deg)';
+    setTimeout(()=>{ btn.style.transition = 'none'; btn.style.transform = 'none'; },520);
+    toast('已刷新');
+  });
+
+  /* ---------------- boot ---------------- */
+  const qTab = params.get('tab');
+  setTab(qTab || (location.hash ? location.hash.slice(1) : 'monitor'));
+  if(params.get('sheet') === '1'){
+    setTimeout(()=>openSheet({
+      title:'重建 ZRAM 分区？',
+      text:'将执行 swapoff → reset → 重设容量与算法 → mkswap → swapon。过程中压缩交换区短暂不可用，系统可能回收部分后台进程。',
+      warn:'建议息屏或空闲时执行。若内核重启后 zram 未就绪，模块会在 service 阶段自动重试。',
+      ok:'确认重建'
+    }), 260);
+  }
+})();
+</script>
+</body>
+</html>

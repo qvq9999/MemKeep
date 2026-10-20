@@ -1,0 +1,69 @@
+name: Release
+
+# 用法：改好 module/module.prop 的 version 与 versionCode → 提交 → 打 tag 推上去
+#   git tag v2.2.0 && git push origin v2.2.0
+# 流水线会：打包 ZIP → 建 Release → 按 module.prop 重写 update.json 并提交回 main。
+# 因为 module.prop 里的 updateJson 指向 main 分支的 update.json，
+# 所以 update.json 必须在 Release 之后立刻回到 main，用户端才能查到新版本。
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version
+        id: meta
+        run: |
+          VERSION=$(grep -m1 '^version=' module/module.prop | cut -d= -f2-)
+          CODE=$(grep -m1 '^versionCode=' module/module.prop | cut -d= -f2-)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "zip=MemKeepPlus-$VERSION.zip" >> "$GITHUB_OUTPUT"
+          echo "module.prop -> $VERSION ($CODE)"
+
+      - name: Build zip
+        run: |
+          python3 scripts/build.py --update-json --repo "${{ github.repository }}"
+          ls -lh dist/
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ steps.meta.outputs.version }}
+          body_path: CHANGELOG.md
+          files: dist/${{ steps.meta.outputs.zip }}
+          fail_on_unmatched_files: true
+
+      - name: Commit update.json back to main
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- update.json; then
+            echo "update.json 无变化，跳过"
+            exit 0
+          fi
+          git add update.json
+          git commit -m "chore(release): sync update.json -> ${{ steps.meta.outputs.version }}"
+          git push origin HEAD:main
+
+      # module.prop 里的 updateJson 走 jsDelivr，而 jsDelivr 对分支引用默认缓存 12 小时。
+      # 不主动 purge 的话，用户最多要等半天才收到更新提示。purge 失败不影响发版。
+      - name: Purge jsDelivr cache
+        run: |
+          for f in update.json CHANGELOG.md; do
+            echo "purge $f"
+            curl -fsS --max-time 20 "https://purge.jsdelivr.net/gh/${{ github.repository }}@main/$f" || true
+            echo
+          done
