@@ -73,12 +73,13 @@ jobs:
           files: dist/${{ steps.meta.outputs.zip }}
           fail_on_unmatched_files: true
 
-      # update.json 是固定路径且走 @main，jsDelivr 默认缓存 12 小时；
-      # 不主动 purge 的话，用户最多要等半天才看到更新。包本身是新路径，无需 purge。
-      - name: Purge jsDelivr cache
+      # update.json / CHANGELOG.md 由 GitHub Pages 提供，缓存约 10 分钟，不需要手动清。
+      # zip 走 jsDelivr 的 <版本号>.zip，每次都是新路径，同样不会命中旧缓存。
+      - name: Wait for Pages
         run: |
-          for f in update.json CHANGELOG.md; do
-            echo "purge $f"
-            curl -fsS --max-time 20 "https://purge.jsdelivr.net/gh/${{ github.repository }}@main/$f" || true
-            echo
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "https://${{ github.repository_owner }}.github.io/${GITHUB_REPOSITORY#*/}/update.json" || true)
+            echo "attempt $i -> HTTP $code"
+            [ "$code" = "200" ] && break
+            sleep 12
           done

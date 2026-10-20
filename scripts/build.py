@@ -132,7 +132,7 @@ def sync_update_json(version, code, repo, zip_name, zip_base=None):
         "version": version,
         "versionCode": code,
         "zipUrl": "%s/%s" % (base, zip_name),
-        "changelog": "https://gcore.jsdelivr.net/gh/%s@main/CHANGELOG.md" % repo,
+        "changelog": "https://%s.github.io/%s/CHANGELOG.md" % (repo.split("/")[0].lower(), repo.split("/")[1]),
     }
     with open(UPDATE_JSON, "w", encoding="utf-8", newline="\n") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)

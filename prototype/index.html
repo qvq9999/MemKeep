@@ -1024,10 +1024,10 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   const UPD_REPO = 'qvq9999/MemKeep';
   // jsDelivr 有多个边缘域名，国内经常只有其中一两个可用（实测 cdn 整段不通、gcore 正常），
   // 所以并发打四个，谁先成功用谁。raw.githubusercontent 作为最后兜底。
+  const UPD_OWNER = UPD_REPO.split('/')[0];
   const UPD_SOURCES = [
-    'https://gcore.jsdelivr.net/gh/' + UPD_REPO + '@main/update.json',
-    'https://fastly.jsdelivr.net/gh/' + UPD_REPO + '@main/update.json',
-    'https://cdn.jsdelivr.net/gh/' + UPD_REPO + '@main/update.json',
+    'https://' + UPD_OWNER + '.github.io/MemKeep/update.json',        // Pages：缓存 10 分钟，发版后最快生效
+    'https://gcore.jsdelivr.net/gh/' + UPD_REPO + '@main/update.json', // jsDelivr：国内多数可达
     'https://raw.githubusercontent.com/' + UPD_REPO + '/main/update.json'
   ];
 
