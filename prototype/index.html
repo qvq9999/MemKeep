@@ -199,6 +199,83 @@ html[data-theme="light"] .ring .arc{filter:drop-shadow(0 0 7px rgba(15,159,104,.
 .pstats b{display:block;font-size:13.5px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums}
 .meter-lb{display:grid;grid-template-columns:repeat(3,1fr);text-align:center;font-size:10.5px;color:var(--tx3);margin-top:6px;letter-spacing:.2px}
 
+.more-btn{
+  display:flex;align-items:center;justify-content:center;gap:4px;width:100%;height:42px;
+  border-top:1px solid var(--line);font-size:12.5px;font-weight:550;color:var(--ac);
+}
+.more-btn svg{width:12px;height:12px;stroke:currentColor;stroke-width:2.4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+/* ============ 进程行 ============ */
+.plist{padding:2px 0 4px}
+.prow{
+  position:relative;display:flex;align-items:center;gap:10px;width:100%;
+  padding:9px 16px;text-align:left;overflow:hidden;
+}
+.prow + .prow{border-top:1px solid var(--line)}
+.prow:active{background:var(--s2)}
+.prow .pbar{
+  position:absolute;left:0;top:0;bottom:0;width:var(--w,0%);
+  background:linear-gradient(90deg,rgba(61,220,151,.12),rgba(61,220,151,.035) 72%,rgba(61,220,151,.008));
+  pointer-events:none;transition:width .4s cubic-bezier(.3,1,.4,1);
+}
+.prow.sys .pbar{background:linear-gradient(90deg,rgba(255,255,255,.06),rgba(255,255,255,.015) 72%,transparent)}
+.prow .pmain{position:relative;z-index:1;flex:1;min-width:0}
+.prow .pmain b{display:flex;align-items:center;gap:4px;font-size:13.5px;font-weight:550;letter-spacing:-.1px;line-height:1.3}
+.prow .pmain b .lk{width:11px;height:11px;stroke:var(--ac);stroke-width:2.4;fill:none;flex:none}
+.prow .pmain i{display:block;font-size:10.5px;color:var(--tx3);font-style:normal;margin-top:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow .prss{position:relative;z-index:1;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;
+  letter-spacing:-.2px;flex:none}
+.prow .prss span{font-size:10px;font-weight:500;color:var(--tx3);margin-left:1px}
+.prow.sys .prss{color:var(--tx2);font-weight:550}
+
+/* ============ 全屏进程面板 ============ */
+.panel{
+  position:fixed;inset:0;z-index:35;background:var(--bg);
+  display:none;flex-direction:column;
+}
+.panel.on{display:flex;animation:panelIn .26s cubic-bezier(.25,1,.4,1)}
+@keyframes panelIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.panel-hd{
+  display:flex;align-items:center;gap:12px;flex:none;
+  padding:calc(14px + env(safe-area-inset-top)) var(--pad) 10px;
+}
+.panel-hd h2{font-size:17px;font-weight:650;letter-spacing:-.3px;flex:1}
+.panel-hd .sub{font-size:11.5px;color:var(--tx3);margin-top:1px;font-weight:400;letter-spacing:0}
+.panel-search{
+  display:flex;align-items:center;gap:8px;margin:0 var(--pad) 10px;flex:none;
+  height:38px;padding:0 12px;border-radius:13px;background:var(--s2);border:1px solid var(--line);
+}
+.panel-search svg{width:15px;height:15px;stroke:var(--tx3);stroke-width:2;fill:none;flex:none}
+.panel-search input{
+  flex:1;min-width:0;border:0;background:none;outline:none;font-size:13.5px;color:var(--tx);
+}
+.panel-search input::placeholder{color:var(--tx3)}
+.panel-filters{display:flex;gap:6px;margin:0 var(--pad) 10px;flex:none;overflow-x:auto;scrollbar-width:none}
+.panel-filters::-webkit-scrollbar{display:none}
+.panel-body{flex:1;overflow-y:auto;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+.panel-foot{
+  flex:none;padding:10px var(--pad) calc(12px + env(safe-area-inset-bottom));
+  font-size:10.5px;color:var(--tx3);text-align:center;line-height:1.5;
+  border-top:1px solid var(--line);background:var(--bg);
+}
+
+/* ============ 多按钮操作弹层 ============ */
+.pdetail{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.pdetail div{padding:9px 10px;border-radius:12px;background:var(--s2);border:1px solid var(--line)}
+.pdetail i{display:block;font-size:10px;color:var(--tx3);font-style:normal;letter-spacing:.2px}
+.pdetail b{display:block;font-size:13px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+.sheet-actions{margin-top:14px;border:1px solid var(--line);border-radius:16px;overflow:hidden;display:none}
+.sheet-actions button{
+  display:flex;align-items:center;justify-content:center;gap:6px;width:100%;height:50px;
+  font-size:14.5px;font-weight:550;color:var(--tx);background:var(--s2);
+}
+.sheet-actions button + button{border-top:1px solid var(--line)}
+.sheet-actions button.danger{color:var(--danger)}
+.sheet-actions button.primary{color:var(--ac)}
+.sheet-actions button:active{background:var(--s3)}
+.sheet.has-actions .btns{display:none}
+
 /* ============ actions ============ */
 .quick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
 .quick button{
@@ -475,7 +552,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
           </div>
           <div class="hero-info">
             <div class="hero-k">已用内存</div>
-            <div class="hero-v"><b class="num" id="memUsed">6.9</b><span>GB</span><em>/ 11.7 GB</em></div>
+            <div class="hero-v"><b class="num" id="memUsed">6.9</b><span>GB</span><em id="memTotal">/ 11.7 GB</em></div>
             <div class="spark">
               <svg id="sparkSvg" viewBox="0 0 180 34" preserveAspectRatio="none">
                 <defs>
@@ -515,14 +592,26 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
         </div>
       </div>
 
+      <div class="card procs">
+        <div class="card-hd">
+          <h3>进程内存</h3>
+          <span class="hint" id="procCount">按 RSS 排序</span>
+        </div>
+        <div class="plist" id="homeProcs"></div>
+        <button class="more-btn" data-action="openprocs">
+          查看全部进程
+          <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
+        </button>
+      </div>
+
       <div class="card ret">
         <div class="ret-top">
           <div class="t">后台保活</div>
           <span class="chip" style="height:24px;font-size:11px;color:var(--ac);border-color:var(--ac-line);background:var(--ac-soft)">增强</span>
         </div>
+        <div class="ret-line"><span>保护中应用</span><b class="num" id="keptCount">3 <em style="font-style:normal;color:var(--tx3);font-weight:400">个</em></b></div>
+        <div class="ret-line"><span>守护进程</span><b style="font-weight:550;color:var(--ac)">运行中</b></div>
         <div class="ret-line"><span>缓存进程上限</span><b class="num">256</b></div>
-        <div class="ret-line"><span>本次开机存活后台</span><b class="num">42 <em style="font-style:normal;color:var(--tx3);font-weight:400">个</em></b></div>
-        <div class="ret-line"><span>LMKD 策略</span><b style="font-weight:550">现代 (PSI)</b></div>
       </div>
 
       <div class="quick">
@@ -726,12 +815,40 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   </nav>
 </div>
 
+<!-- ================= 全屏进程面板 ================= -->
+<div class="panel" id="procPanel">
+  <div class="panel-hd">
+    <div style="flex:1">
+      <h2>进程内存</h2>
+      <div class="sub" id="procPanelSub">读取中…</div>
+    </div>
+    <button class="icon-btn" data-action="closeprocs" aria-label="关闭">
+      <svg viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    </button>
+  </div>
+  <div class="panel-search">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="procSearch" placeholder="搜索应用名或包名" autocomplete="off">
+  </div>
+  <div class="panel-filters" id="procFilters">
+    <button class="chip-s on" data-pfilter="app">应用</button>
+    <button class="chip-s" data-pfilter="kept">保护中</button>
+    <button class="chip-s" data-pfilter="all">全部</button>
+    <button class="chip-s" data-pfilter="sys">系统</button>
+  </div>
+  <div class="panel-body">
+    <div class="plist" id="procList"></div>
+  </div>
+  <div class="panel-foot" id="procFoot">系统进程不提供停止操作</div>
+</div>
+
 <div class="scrim" id="scrim"></div>
 <div class="sheet" id="sheet">
   <div class="grip"></div>
   <h4 id="sheetTitle">重建 ZRAM 分区？</h4>
   <div id="sheetBody"><p>将执行 swapoff → reset → 重新设置容量与算法 → mkswap → swapon。整个过程中压缩交换区会短暂不可用，系统可能在此期间回收部分后台进程。</p></div>
   <div class="warnbox" id="sheetWarn">建议在息屏或空闲时执行；如需恢复默认值，请在「关于 → 恢复出厂参数」中操作。</div>
+  <div class="sheet-actions" id="sheetActions"></div>
   <div class="btns">
     <button class="ghost" id="sheetCancel">取消</button>
     <button class="prime" id="sheetOk">确认重建</button>
@@ -1053,6 +1170,337 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     renderLogs(b.dataset.filter);
   });
 
+  /* ---------------- 进程 ---------------- */
+  const MODDIR = '/data/adb/modules/memkeep_plus';
+  const MEMKEEP = MODDIR + '/bin/memkeep.sh';
+
+  // 常见应用的中文名。系统给不出应用名（要读 APK 资源，太慢），
+  // 没有 label 的接口就只能靠这张表，查不到就显示包名 —— 不猜。
+  const LABELS = {
+    'com.tencent.mm': '微信',
+    'com.tencent.mobileqq': 'QQ',
+    'com.tencent.wework': '企业微信',
+    'com.tencent.weread': '微信读书',
+    'com.tencent.qqlive': '腾讯视频',
+    'com.tencent.tmgp.sgame': '王者荣耀',
+    'com.tencent.tmgp.pubgmhd': '和平精英',
+    'com.ss.android.ugc.aweme': '抖音',
+    'com.ss.android.ugc.aweme.lite': '抖音极速版',
+    'com.smile.gifmaker': '快手',
+    'com.eg.android.AlipayGphone': '支付宝',
+    'com.taobao.taobao': '淘宝',
+    'com.jingdong.app.mall': '京东',
+    'com.xunmeng.pinduoduo': '拼多多',
+    'com.xingin.xhs': '小红书',
+    'com.sina.weibo': '微博',
+    'com.autonavi.minimap': '高德地图',
+    'com.baidu.BaiduMap': '百度地图',
+    'com.netease.cloudmusic': '网易云音乐',
+    'tv.danmaku.bili': '哔哩哔哩',
+    'com.qiyi.video': '爱奇艺',
+    'com.alibaba.android.rimet': '钉钉',
+    'com.zhihu.android': '知乎',
+    'com.dragon.read': '番茄小说',
+    'com.miui.home': '系统桌面',
+    'com.android.systemui': '状态栏'
+  };
+
+  const MOCK_PROCS = [
+    {pid:12043, uid:10186, adj:0,    rss:1296000, name:'com.tencent.mm',              kept:true,  tier:'critical'},
+    {pid:8831,  uid:10221, adj:200,  rss:872000,  name:'com.ss.android.ugc.aweme',    kept:true,  tier:'restartable'},
+    {pid:12188, uid:10186, adj:250,  rss:531000,  name:'com.tencent.mm:push',         kept:true,  tier:'critical'},
+    {pid:6442,  uid:10204, adj:200,  rss:412000,  name:'com.xingin.xhs',              kept:false},
+    {pid:2911,  uid:1000,  adj:-900, rss:296000,  name:'system_server',               kept:false},
+    {pid:7702,  uid:10102, adj:200,  rss:268000,  name:'com.eg.android.AlipayGphone', kept:false},
+    {pid:5518,  uid:1000,  adj:0,    rss:214000,  name:'com.miui.home',               kept:false},
+    {pid:3390,  uid:1000,  adj:-1000,rss:196000,  name:'com.android.systemui',        kept:false},
+    {pid:9120,  uid:10133, adj:900,  rss:184000,  name:'tv.danmaku.bili',             kept:false},
+    {pid:4021,  uid:10145, adj:700,  rss:162000,  name:'com.taobao.taobao',           kept:false},
+    {pid:6155,  uid:10177, adj:250,  rss:148000,  name:'com.alibaba.android.rimet',   kept:false},
+    {pid:8834,  uid:10221, adj:220,  rss:132000,  name:'com.ss.android.ugc.aweme:push', kept:true, tier:'restartable'},
+    {pid:1870,  uid:1000,  adj:-1000,rss:118000,  name:'surfaceflinger',              kept:false},
+    {pid:7203,  uid:10158, adj:900,  rss:96000,   name:'com.sina.weibo',              kept:false},
+    {pid:1588,  uid:1000,  adj:-1000,rss:88000,   name:'zygote64',                    kept:false},
+    {pid:4310,  uid:10191, adj:900,  rss:72000,   name:'com.zhihu.android',           kept:false}
+  ];
+
+  let PROCS = [];
+  let procFilter = 'app';
+  let procKeyword = '';
+
+  const LOCK_SVG = '<svg class="lk" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
+
+  const pkgOf = p => String(p.name || '').split(':')[0];
+  const isSys = p => p.uid < 10000;
+
+  function labelOf(p){
+    const pkg = pkgOf(p);
+    const base = LABELS[pkg] || pkg || p.name;
+    const i = String(p.name).indexOf(':');
+    // 子进程（微信 :push 之类）必须带后缀，否则列表里会出现两个"微信"
+    return i < 0 ? base : base + ' · ' + String(p.name).slice(i + 1);
+  }
+  // 首页按包名聚合成一行：一个应用拆成三行没人看得懂
+  function aggregate(list){
+    const map = new Map();
+    list.forEach(p => {
+      const k = pkgOf(p);
+      const cur = map.get(k);
+      if(cur){
+        cur.rss += p.rss;
+        cur.kept = cur.kept || !!p.kept;
+        cur.parts++;
+      }else{
+        map.set(k, { pkg: k, rss: p.rss, kept: !!p.kept, adj: p.adj, parts: 1 });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => b.rss - a.rss);
+  }
+  function fmtRss(kb){
+    if(kb >= 1048576) return { v: (kb / 1048576).toFixed(2), u: 'GB' };
+    if(kb >= 1024)    return { v: Math.round(kb / 1024), u: 'MB' };
+    return { v: kb, u: 'KB' };
+  }
+  function adjText(adj){
+    if(adj <= -900) return '常驻';
+    if(adj < 0)     return '前台';
+    if(adj <= 100)  return '前台';
+    if(adj <= 250)  return '可见服务';
+    if(adj <= 700)  return '缓存';
+    if(adj <= 900)  return '后台';
+    return '空进程';
+  }
+
+  function procRowHTML(p, maxRss){
+    const r = fmtRss(p.rss);
+    const w = Math.max(3, Math.round(p.rss / maxRss * 100));
+    const sub = p.name === pkgOf(p) ? pkgOf(p) : p.name;
+    return '<button class="prow' + (isSys(p) ? ' sys' : '') + '" data-pid="' + p.pid + '">' +
+      '<span class="pbar" style="--w:' + w + '%"></span>' +
+      '<span class="pmain"><b>' + esc(labelOf(p)) + (p.kept ? LOCK_SVG : '') + '</b>' +
+      '<i>' + esc(sub) + ' · ' + adjText(p.adj) + '</i></span>' +
+      '<span class="prss">' + r.v + '<span>' + r.u + '</span></span>' +
+      '</button>';
+  }
+
+  function aggRowHTML(a, maxRss){
+    const r = fmtRss(a.rss);
+    const w = Math.max(3, Math.round(a.rss / maxRss * 100));
+    return '<button class="prow" data-goto="' + esc(a.pkg) + '">' +
+      '<span class="pbar" style="--w:' + w + '%"></span>' +
+      '<span class="pmain"><b>' + esc(LABELS[a.pkg] || a.pkg) + (a.kept ? LOCK_SVG : '') + '</b>' +
+      '<i>' + esc(a.pkg) + (a.parts > 1 ? ' · ' + a.parts + ' 个进程' : '') + '</i></span>' +
+      '<span class="prss">' + r.v + '<span>' + r.u + '</span></span>' +
+      '</button>';
+  }
+
+  function renderHomeProcs(){
+    const box = $('#homeProcs');
+    if(!box) return;
+    const apps = aggregate(PROCS.filter(p => !isSys(p))).slice(0, 3);
+    const max = apps.length ? apps[0].rss : 1;
+    box.innerHTML = apps.length
+      ? apps.map(a => aggRowHTML(a, max)).join('')
+      : '<div style="padding:22px 16px;text-align:center;color:var(--tx3);font-size:12.5px">读取不到进程列表</div>';
+    const c = $('#procCount');
+    if(c) c.textContent = PROCS.length + ' 个进程 · 按 RSS';
+    // 计数按应用算，不按进程算 —— 微信 :push 不能再算一个应用
+    const keptPkgs = new Set(PROCS.filter(p => p.kept).map(pkgOf));
+    const k = $('#keptCount');
+    if(k) k.innerHTML = keptPkgs.size +
+      ' <em style="font-style:normal;color:var(--tx3);font-weight:400">个</em>';
+  }
+
+  function filteredProcs(){
+    const kw = procKeyword.trim().toLowerCase();
+    return PROCS.filter(p => {
+      if(procFilter === 'app' && isSys(p)) return false;
+      if(procFilter === 'sys' && !isSys(p)) return false;
+      if(procFilter === 'kept' && !p.kept) return false;
+      if(!kw) return true;
+      return (p.name + ' ' + labelOf(p)).toLowerCase().indexOf(kw) >= 0;
+    }).sort((a, b) => b.rss - a.rss);
+  }
+
+  function renderPanel(){
+    const list = filteredProcs();
+    const box = $('#procList');
+    if(!box) return;
+    const max = list.length ? list[0].rss : 1;
+    box.innerHTML = list.length
+      ? list.map(p => procRowHTML(p, max)).join('')
+      : '<div style="padding:34px 16px;text-align:center;color:var(--tx3);font-size:12.5px">没有匹配的进程</div>';
+    const sub = $('#procPanelSub');
+    if(sub) sub.textContent = '共 ' + PROCS.length + ' 个进程 · 按常驻内存排序';
+    const foot = $('#procFoot');
+    if(foot) foot.textContent = '显示 ' + list.length + ' 个 · 系统进程不提供停止操作 · 停止后应用回到前台会重新加载';
+  }
+
+  function renderAll(){ renderHomeProcs(); renderPanel(); }
+
+  /* ---- 顶部内存环：让数字跟着真实数据走，杀进程后能立刻看到变化 ---- */
+  const RING_C = 295.3;   // 2πr，r=47
+  let demoUsedKb = 6.9 * 1048576;
+
+  function setHeroUsed(usedKb, totalKb){
+    if(!totalKb) return;
+    const pct = Math.max(0, Math.min(100, usedKb / totalKb * 100));
+    const u = $('#memUsed'), t = $('#memTotal'), p = $('#ringPct'), arc = $('#ringArc');
+    if(u) u.textContent = (usedKb / 1048576).toFixed(1);
+    if(t) t.textContent = '/ ' + (totalKb / 1048576).toFixed(1) + ' GB';
+    if(p) p.innerHTML = Math.round(pct) + '<i>%</i>';
+    if(arc) arc.setAttribute('stroke-dashoffset', (RING_C * (1 - pct / 100)).toFixed(1));
+  }
+
+  async function loadMem(){
+    if(!ksuApi()) return;
+    try{
+      const out = await exec('sh ' + shq(MEMKEEP) + ' mem');
+      const m = {};
+      String(out).trim().split(/\r?\n/).forEach(l => {
+        const i = l.indexOf('=');
+        if(i > 0) m[l.slice(0, i)] = l.slice(i + 1);
+      });
+      const total = +m.total, avail = +m.avail;
+      if(total > 0 && avail >= 0) setHeroUsed(total - avail, total);
+    }catch(e){}
+  }
+
+  async function loadProcs(){
+    if(!ksuApi()){
+      PROCS = MOCK_PROCS.map(x => Object.assign({}, x));
+      return;
+    }
+    try{
+      const out = await exec('sh ' + shq(MEMKEEP) + ' procs 60');
+      const rows = String(out).trim().split(/\r?\n/).filter(Boolean).map(line => {
+        const c = line.split('\t');
+        return { pid: +c[0], uid: +c[1], adj: +c[2], rss: +c[3], name: c[4] || '?' };
+      }).filter(r => r.pid > 0);
+      let keptMap = {};
+      try{
+        const kl = await exec('sh ' + shq(MEMKEEP) + ' keep list');
+        String(kl).trim().split(/\r?\n/).filter(Boolean).forEach(l => {
+          const [k, t] = l.split(/\s+/);
+          if(k) keptMap[k] = t;
+        });
+      }catch(e){}
+      rows.forEach(r => {
+        const pkg = pkgOf(r);
+        if(keptMap[pkg]){ r.kept = true; r.tier = keptMap[pkg]; }
+      });
+      if(rows.length) PROCS = rows;
+    }catch(e){}
+  }
+
+  /* ---- 面板开关 ---- */
+  function openPanel(){
+    $('#procPanel').classList.add('on');
+    renderPanel();
+    history.pushState({ proc: 1 }, '');
+  }
+  function closePanel(fromPop){
+    $('#procPanel').classList.remove('on');
+    if(!fromPop && history.state && history.state.proc) history.back();
+  }
+  window.addEventListener('popstate', ()=>{
+    if($('#procPanel').classList.contains('on')) closePanel(true);
+  });
+
+  $('#procFilters').addEventListener('click', e=>{
+    const b = e.target.closest('button[data-pfilter]');
+    if(!b) return;
+    procFilter = b.dataset.pfilter;
+    $$('#procFilters .chip-s').forEach(x=>x.classList.toggle('on', x === b));
+    renderPanel();
+  });
+  $('#procSearch').addEventListener('input', e=>{
+    procKeyword = e.target.value;
+    renderPanel();
+  });
+
+  /* ---- 单进程操作 ---- */
+  function openProcSheet(pid){
+    const p = PROCS.find(x => x.pid === pid);
+    if(!p) return;
+    const r = fmtRss(p.rss);
+    const acts = [];
+    if(!isSys(p)){
+      acts.push({ label: '停止进程', kind: 'danger', onClick: ()=> confirmKill(p) });
+    }
+    acts.push({
+      label: p.kept ? '取消保活' : '加入保活 · 永不被杀',
+      kind: p.kept ? '' : 'primary',
+      onClick: ()=> toggleKeep(p)
+    });
+    acts.push({ label: '取消' });
+
+    openSheet({
+      title: labelOf(p),
+      html: '<p class="mono">' + esc(p.name) + ' · PID ' + p.pid + '</p>' +
+            '<div class="pdetail">' +
+              '<div><i>常驻内存</i><b>' + r.v + ' ' + r.u + '</b></div>' +
+              '<div><i>oom_score_adj</i><b>' + p.adj + '</b></div>' +
+              '<div><i>状态</i><b>' + adjText(p.adj) + '</b></div>' +
+            '</div>',
+      warn: isSys(p) ? '这是系统进程（uid ' + p.uid + '），停止可能导致界面重启，已禁用该操作。' : '',
+      actions: acts
+    });
+  }
+
+  function confirmKill(p){
+    const r = fmtRss(p.rss);
+    openSheet({
+      title: '停止「' + labelOf(p) + '」？',
+      html: '<p>将执行 <code>am force-stop ' + esc(pkgOf(p)) + '</code>，该应用的子进程会一并结束，' +
+            '当前占用的 ' + r.v + ' ' + r.u + ' 会被释放。</p>' +
+            '<p>下次打开应用会重新冷启动，可能比平时慢 1–3 秒。</p>',
+      warn: p.kept ? '这个应用在保活名单里，停止后守护进程仍会在它下次启动时把 oom 分数压回去。' : '',
+      ok: '停止',
+      danger: true,
+      onOk: ()=> doKill(p)
+    });
+  }
+
+  async function doKill(p){
+    const lab = labelOf(p);
+    if(ksuApi()){
+      let out = '';
+      try{ out = await exec('sh ' + shq(MEMKEEP) + ' kill ' + p.pid); }catch(e){ out = 'FAIL'; }
+      if(/^OK/.test(String(out).trim())){
+        toast('已停止 ' + lab);
+      }else if(/REFUSE_SYSTEM/.test(String(out))){
+        toast('系统进程已拒绝');
+        return;
+      }else{
+        toast('停止失败，可能已被系统回收');
+      }
+    }else{
+      toast('已停止 ' + lab);
+    }
+    PROCS = PROCS.filter(x => x.pid !== p.pid);
+    if(ksuApi()){
+      loadMem();
+    }else{
+      demoUsedKb = Math.max(0, demoUsedKb - p.rss);
+      setHeroUsed(demoUsedKb, 11.7 * 1048576);
+    }
+    renderAll();
+  }
+
+  async function toggleKeep(p){
+    const pkg = pkgOf(p);
+    const willKeep = !p.kept;
+    if(ksuApi()){
+      try{ await exec('sh ' + shq(MEMKEEP) + ' keep set ' + shq(pkg) + ' ' + (willKeep ? 'critical' : 'off')); }catch(e){}
+    }
+    PROCS.forEach(x => {
+      if(pkgOf(x) === pkg){ x.kept = willKeep; x.tier = willKeep ? 'critical' : undefined; }
+    });
+    renderAll();
+    toast(willKeep ? ('已加入保活 · ' + pkg) : ('已取消保活 · ' + pkg));
+  }
+
   /* ---------------- sheet ---------------- */
   let sheetOnOk = null, sheetOnCancel = null;
   function openSheet(o){
@@ -1069,6 +1517,27 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     cancel.style.display = o.single ? 'none' : '';
     sheetOnOk = o.onOk || null;
     sheetOnCancel = o.onCancel || null;
+
+    // 多按钮模式：竖向操作列表，替代底部两键
+    const actBox = $('#sheetActions');
+    if(o.actions && o.actions.length){
+      actBox.style.display = 'block';
+      actBox.innerHTML = o.actions.map((a, i) =>
+        '<button data-act="' + i + '" class="' + (a.kind || '') + '">' + esc(a.label) + '</button>'
+      ).join('');
+      actBox.onclick = e => {
+        const b = e.target.closest('button[data-act]');
+        if(!b) return;
+        const a = o.actions[+b.dataset.act];
+        closeSheet();
+        if(a && a.onClick) a.onClick();
+      };
+      $('#sheet').classList.add('has-actions');
+    }else{
+      actBox.style.display = 'none';
+      actBox.onclick = null;
+      $('#sheet').classList.remove('has-actions');
+    }
     $('#scrim').classList.add('on');
     $('#sheet').classList.add('on');
   }
@@ -1082,10 +1551,28 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
 
   /* ---------------- actions ---------------- */
   document.addEventListener('click', e=>{
+    const row = e.target.closest('.prow');
+    if(row){
+      if(row.dataset.pid){ openProcSheet(+row.dataset.pid); }
+      else if(row.dataset.goto){
+        // 首页那行是「按应用聚合」的，点进去看该应用的全部进程
+        procKeyword = row.dataset.goto;
+        procFilter = 'all';
+        $('#procSearch').value = procKeyword;
+        $$('#procFilters .chip-s').forEach(x => x.classList.toggle('on', x.dataset.pfilter === 'all'));
+        openPanel();
+      }
+      return;
+    }
+
     const b = e.target.closest('[data-action]');
     if(!b) return;
     const a = b.dataset.action;
-    if(a === 'apply'){
+    if(a === 'openprocs'){
+      openPanel();
+    } else if(a === 'closeprocs'){
+      closePanel();
+    } else if(a === 'apply'){
       toast('参数已应用 · 无需重启');
     } else if(a === 'dropcache'){
       toast('已回收 782 MB 页缓存');
@@ -1145,8 +1632,14 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   });
 
   /* ---------------- boot ---------------- */
+  loadProcs().then(renderAll);
+  loadMem();
   const qTab = params.get('tab');
   setTab(qTab || (location.hash ? location.hash.slice(1) : 'monitor'));
+  if(params.get('panel') === '1'){
+    $('#procPanel').classList.add('on');
+    renderPanel();
+  }
   if(params.get('sheet') === '1'){
     setTimeout(()=>openSheet({
       title:'重建 ZRAM 分区？',

@@ -43,7 +43,7 @@ UPDATE_JSON = os.path.join(ROOT, "update.json")
 DEFAULT_REPO = "qvq9999/MemKeep"
 
 # ZIP 根目录下应当包含的条目（其余一律不打包）
-INCLUDE = ["module.prop", "config.conf", "skip_mount", "META-INF", "webroot"]
+INCLUDE = ["module.prop", "config.conf", "keep_apps.conf", "skip_mount", "META-INF", "webroot", "bin"]
 INCLUDE_EXT = (".sh",)
 
 # 这些按文本处理：打包时统一把 CRLF 掰回 LF。

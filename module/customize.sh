@@ -7,6 +7,8 @@ set_perm "$MODPATH/save_config.sh" 0 0 0755
 set_perm "$MODPATH/uninstall.sh" 0 0 0755
 set_perm "$MODPATH/tools.sh" 0 0 0755
 set_perm "$MODPATH/action.sh" 0 0 0755
+set_perm "$MODPATH/bin/memkeep.sh" 0 0 0755
+set_perm "$MODPATH/keep_apps.conf" 0 0 0644
 
 ui_print "- MemKeep++"
 ui_print "- Device: $(getprop ro.product.device)"

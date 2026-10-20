@@ -18,6 +18,7 @@ load_config() {
   ZRAM_KEEP_BACKING_DEV=true
   KEEP_MODE=strong
   LATE_REAPPLY=true
+  KEEP_DAEMON=true
 
   [ -f "$CONFIG" ] && . "$CONFIG"
 }

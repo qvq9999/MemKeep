@@ -1,6 +1,13 @@
 #!/system/bin/sh
+#
+# 保存 WebUI 的配置项。
+# 做法是「就地改值」而不是整份重写 —— 原来的实现用 heredoc 重新生成文件，
+# 会把用户手写的注释和后续新增的键（如 KEEP_DAEMON）全部抹掉。
+# 现在只替换目标键所在的那一行，其余内容原样保留。
 
 MODDIR=${0%/*}
+# 以 `sh save_config.sh` 这种相对方式调用时 ${0%/*} 不会得到目录，兜一下
+[ "$MODDIR" = "$0" ] && MODDIR=.
 CONFIG="$MODDIR/config.conf"
 TMP="$CONFIG.tmp"
 
@@ -51,20 +58,28 @@ bool_value "$ZRAM_KEEP_BACKING_DEV" || fail "invalid ZRAM_KEEP_BACKING_DEV"
 keep_mode_value "$KEEP_MODE" || fail "invalid KEEP_MODE"
 bool_value "$LATE_REAPPLY" || fail "invalid LATE_REAPPLY"
 
-cat > "$TMP" <<EOF
-# MemKeep++ configuration
-# Saved from KernelSU WebUI.
+[ -f "$CONFIG" ] || : > "$CONFIG"
+cp "$CONFIG" "$TMP" || fail "cannot copy config"
 
-ZRAM_ENABLE=$ZRAM_ENABLE
-ZRAM_SIZE=$ZRAM_SIZE
-ZRAM_ALGORITHM=$ZRAM_ALGORITHM
-ZRAM_KEEP_BACKING_DEV=$ZRAM_KEEP_BACKING_DEV
-KEEP_MODE=$KEEP_MODE
-LATE_REAPPLY=$LATE_REAPPLY
-EOF
+set_kv() {
+  key="$1"
+  value="$2"
+  if grep -q "^${key}=" "$TMP" 2>/dev/null; then
+    sed "s|^${key}=.*|${key}=${value}|" "$TMP" > "$TMP.n" && mv "$TMP.n" "$TMP"
+  else
+    printf '%s=%s\n' "$key" "$value" >> "$TMP"
+  fi
+}
+
+set_kv ZRAM_ENABLE "$ZRAM_ENABLE"
+set_kv ZRAM_SIZE "$ZRAM_SIZE"
+set_kv ZRAM_ALGORITHM "$ZRAM_ALGORITHM"
+set_kv ZRAM_KEEP_BACKING_DEV "$ZRAM_KEEP_BACKING_DEV"
+set_kv KEEP_MODE "$KEEP_MODE"
+set_kv LATE_REAPPLY "$LATE_REAPPLY"
 
 cat "$TMP" > "$CONFIG" || fail "cannot write config"
-rm -f "$TMP"
+rm -f "$TMP" "$TMP.n"
 chmod 0644 "$CONFIG" 2>/dev/null
 sync
 
