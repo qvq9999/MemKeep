@@ -46,6 +46,11 @@ score_of() {
   esac
 }
 
+# 取 /proc/meminfo 里某个字段的 kB 值（不存在则输出 0）
+meminfo_kb() {
+  awk -v k="$1" '$1==k":"{print $2+0; exit}' /proc/meminfo 2>/dev/null
+}
+
 cmd_mem() {
   awk '
     /^MemTotal:/     {t=$2}
@@ -62,21 +67,41 @@ cmd_mem() {
   # zram 统计：Android 12+ 的内核**移除了 /sys/block/zram0/mem_used**，
   # 所有数字都在 mm_stat 里。之前以 mem_used 是否存在做判断，
   # 在新内核上恒为假，于是整个 zram 区块被跳过、界面全是 0 —— 必须读 mm_stat。
-  #   mm_stat: orig_data_size compr_data_size mem_used ...
+  #   mm_stat: orig_data_size compr_data_size mem_used mem_limit mem_used_max ...
+  #
+  # 三个量的口径必须分清（前端就是按这个算占用率和压缩比的）：
+  #   orig_data_size   未压缩数据量 —— 写进 swap 的页的原始大小，
+  #                    等于 `free` 里的 swap used，和 disksize 同量纲
+  #   compr_data_size  压缩后数据量 —— 真实压缩比的分母
+  #   mem_used         zram 实际吃掉的物理内存（压缩页 + 元数据/分配器开销）
+  # 占用率只能用 orig/disksize；拿 mem_used 去比 disksize 是两个量纲相除，
+  # 会比系统里看到的 swap 占用低一大截（典型低 3–4 倍）。
   z=/sys/block/zram0
-  zorig=0; zused=0; zdisk=0; zalg=""
+  zorig=0; zused=0; zcompr=0; zdisk=0; zalg=""
   if [ -d "$z" ]; then
     zdisk=$(cat "$z/disksize" 2>/dev/null)
     if [ -r "$z/mm_stat" ]; then
-      read -r zorig _zcompr zused _rest < "$z/mm_stat" 2>/dev/null
-      [ "${zused:-0}" -gt 0 ] 2>/dev/null || zused=${_zcompr:-0}
+      read -r zorig zcompr zused _rest < "$z/mm_stat" 2>/dev/null
     else
       zorig=$(cat "$z/orig_data_size" 2>/dev/null)
+      zcompr=$(cat "$z/compr_data_size" 2>/dev/null)
       zused=$(cat "$z/mem_used" 2>/dev/null)
+    fi
+    zorig=${zorig:-0}; zcompr=${zcompr:-0}; zused=${zused:-0}
+    # 4.20 之前的厂商分支里 mm_stat 的单位是「页」，之后统一成「字节」。
+    # 用 meminfo 的 swap 占用量交叉校验：字节口径下两者几乎相等，
+    # 差 4096 倍就是页口径，统一换算成字节再往下传。
+    _su=$(( ($(meminfo_kb SwapTotal) - $(meminfo_kb SwapFree)) * 1024 ))
+    if [ "${_su:-0}" -gt 0 ] && [ "${zorig:-0}" -gt 0 ] 2>/dev/null; then
+      _ratio=$(awk -v s="$_su" -v o="$zorig" 'BEGIN{ if (o > 0) printf "%d", s / o; else print 0 }')
+      if [ "${_ratio:-0}" -ge 3000 ] && [ "${_ratio:-0}" -le 5000 ]; then
+        zorig=$((zorig * 4096)); zcompr=$((zcompr * 4096)); zused=$((zused * 4096))
+      fi
     fi
     zalg=$(sed -n 's/.*\[\(.*\)\].*/\1/p' "$z/comp_algorithm" 2>/dev/null)
   fi
   echo "zram_orig=${zorig:-0}"
+  echo "zram_compr=${zcompr:-0}"
   echo "zram_used=${zused:-0}"
   echo "zram_disk=${zdisk:-0}"
   echo "zram_alg=$zalg"
@@ -109,15 +134,32 @@ cmd_procs() {
   case "$limit" in ''|*[!0-9]*) limit=40 ;; esac
 
   if ps_can_rss; then
-    ps -A -o PID,RSS,NAME 2>/dev/null | tail -n +2 \
-      | sort -k2 -nr | head -n "$limit" \
-      | while read -r pid rss name; do
-          [ -n "$pid" ] || continue
-          adj=$(cat "/proc/$pid/oom_score_adj" 2>/dev/null)
-          uid=$(awk '/^Uid:/{print $2; exit}' "/proc/$pid/status" 2>/dev/null)
-          printf '%s\t%s\t%s\t%s\t%s\n' \
-            "$pid" "${uid:--1}" "${adj:--1}" "${rss:-0}" "${name:-?}"
-        done
+    # 只取 RSS 前 limit 个进程，再把这些进程的状态一次性读出来。
+    # 旧实现是「每个 pid fork 一次 cat + 一次 awk」：60 个进程 = 120 次 fork，
+    # 手机上每次 fork 8–20ms，单这一项就吃掉 1s 上下，是首屏最重的一笔。
+    # 现在 ps/sort/head 之后只 fork 三个 awk，而且每个 awk 一次读多个文件。
+    top=$(ps -A -o PID,RSS,NAME 2>/dev/null | tail -n +2 | sort -k2 -nr | head -n "$limit")
+    [ -n "$top" ] || return 0
+    pids=$(printf '%s\n' "$top" | awk '{print $1}')
+    adj_paths=""; st_paths=""
+    for p in $pids; do
+      adj_paths="$adj_paths /proc/$p/oom_score_adj"
+      st_paths="$st_paths /proc/$p/status"
+    done
+    # FILENAME 里带着 pid，所以一个 awk 就能把「pid→值」的映射读出来
+    adj_dump=$(awk 'FNR==1{ p=FILENAME; sub("/oom_score_adj$","",p); sub(".*/","",p); print p, $1 }' $adj_paths 2>/dev/null)
+    uid_dump=$(awk '/^Uid:/{ p=FILENAME; sub("/status$","",p); sub(".*/","",p); print p, $2 }' $st_paths 2>/dev/null)
+    printf '%s\n' "$top" | awk -v A="$adj_dump" -v U="$uid_dump" '
+      BEGIN{
+        n=split(A, la, "\n"); for(i=1;i<=n;i++){ split(la[i], f, " "); if(f[1]!="") adj[f[1]]=f[2] }
+        n=split(U, lu, "\n"); for(i=1;i<=n;i++){ split(lu[i], f, " "); if(f[1]!="") uid[f[1]]=f[2] }
+      }
+      {
+        pid=$1
+        name=$3; for(i=4;i<=NF;i++) name=name " " $i
+        if(name=="") name="?"
+        printf "%s\t%s\t%s\t%s\t%s\n", pid, (pid in uid ? uid[pid] : -1), (pid in adj ? adj[pid] : -1), $2+0, name
+      }'
     return
   fi
 
@@ -635,7 +677,26 @@ cmd_keep_guard() {
   done
 }
 
+# 首屏一次性取数。
+# WebUI 每调一次 shell 就要 fork 一个 root shell（100–300ms 的固定开销），
+# 之前首屏要发 8 次：probe + mem + caps + algs + config + procs + keep list + logs/kills。
+# 合并成一次调用后固定开销只付一遍，前端按 ###TAG 分段切。
+# 击杀记录（logcat）故意不放进来 —— 它是首屏最慢的一项，改由「日志」页按需拉。
+cmd_boot() {
+  n="${1:-60}"
+  case "$n" in ''|*[!0-9]*) n=60 ;; esac
+  echo "###MEM";    cmd_mem
+  echo "###CAPS";   cmd_caps
+  echo "###ALGS";   cmd_algs
+  echo "###CONFIG"; cmd_config
+  echo "###PROCS";  cmd_procs "$n"
+  echo "###KEEP";   cmd_keep_list
+  echo "###LOGS";   cmd_logs 200
+  echo "###END"
+}
+
 case "$1" in
+  boot)  cmd_boot "$2" ;;
   mem)   cmd_mem ;;
   procs) cmd_procs "$2" ;;
   kill)  cmd_kill "$2" ;;

@@ -560,8 +560,10 @@ html[data-theme="light"] .seg.accent button.on{background:var(--ac);color:#fff;b
   width:100%;max-width:520px;
   display:grid;grid-template-columns:repeat(4,1fr);
   padding:8px 8px calc(8px + env(safe-area-inset-bottom));
-  background:color-mix(in srgb,var(--bg) 82%,transparent);
-  -webkit-backdrop-filter:saturate(180%) blur(22px);backdrop-filter:saturate(180%) blur(22px);
+  /* 不用 backdrop-filter：WebView 里 blur 要按滚动位置每帧重算整块背景，
+     是这套界面里最贵的合成操作。改成「提高不透明度的普通半透明底 + 上边框」，
+     视觉上仍是"内容从下面透出来"的观感，成本降到几乎为零。 */
+  background:color-mix(in srgb,var(--bg) 95%,transparent);
   border-top:1px solid var(--line);
 }
 .tabbar button{
@@ -592,7 +594,8 @@ html[data-theme="light"] .savebar button{color:#fff}
 .savebar button .sub{font-size:10px;font-weight:550;opacity:.7;margin-top:1px}
 
 /* ============ sheet ============ */
-.scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .24s;z-index:40;backdrop-filter:blur(3px)}
+/* 遮罩同理：去掉 blur(3px)，把黑色浓度从 .55 提到 .62 补回分离感 */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.62);opacity:0;pointer-events:none;transition:opacity .24s;z-index:40}
 .scrim.on{opacity:1;pointer-events:auto}
 .sheet{
   position:fixed;left:50%;bottom:0;transform:translate(-50%,100%);width:100%;max-width:520px;z-index:41;
@@ -735,6 +738,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
           <div class="zmeta">
             <span><b class="num" id="zramUse">— / —</b></span>
             <span>压缩比 <b class="num" id="zramRatio">—</b></span>
+            <span>实占 <b class="num" id="zramMem">—</b></span>
             <span>净省 <b class="num" style="color:var(--ac)" id="zramSaved">—</b></span>
           </div>
         </div>
@@ -867,7 +871,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     <!-- ================= 关于 ================= -->
     <section class="view" id="view-about">
       <div class="card about-hd">
-        <div class="v"><h3 class="num">v3.2</h3><span class="chip ok" style="height:23px;font-size:11px">已是最新</span></div>
+        <div class="v"><h3 class="num">v3.3</h3><span class="chip ok" style="height:23px;font-size:11px">已是最新</span></div>
         <p>内核级内存管理模块：重建 ZRAM 压缩交换区、调整 VM 水位与 LMKD 策略，让后台应用留得更久。</p>
         <button class="about-link" data-action="update"><span id="updLabel">检查更新</span>
           <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
@@ -1052,7 +1056,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   }
 
   /* ---------------- 设备与能力 ---------------- */
-  async function loadDevice(){
+  async function loadDevice(pre){
     if(!hasKsu()){
       if(DEMO){
         fillDevice({ model:'realme GT7 Pro', android:'15', sdk:'35',
@@ -1067,7 +1071,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
       return;
     }
     try{
-      const out = await shell('caps');
+      const out = pre != null ? pre : await shell('caps');
       const m = {};
       String(out).trim().split(/\r?\n/).forEach(l => {
         const i = l.indexOf('=');
@@ -1095,7 +1099,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
 
   /* ---------------- 在线更新 ---------------- */
   // 版本源：与 module.prop 的 versionCode 同编码（MAJOR*10000 + MINOR*100 + PATCH）
-  const APP = {version:'v3.2', code:30200};
+  const APP = {version:'v3.3', code:30300};
   const UPD_REPO = 'qvq9999/MemKeep';
   // jsDelivr 有多个边缘域名，国内经常只有其中一两个可用（实测 cdn 整段不通、gcore 正常），
   // 所以并发打四个，谁先成功用谁。raw.githubusercontent 作为最后兜底。
@@ -1312,6 +1316,8 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
 
   /* ---------------- tabs ---------------- */
   const TABS = ['monitor','tune','logs','about'];
+  // 击杀记录只在第一次进「日志」页时读一次 logcat，之后靠下拉刷新/刷新按钮更新
+  let killsLoaded = false;
   function setTab(name){
     if(!TABS.includes(name)) name = 'monitor';
     TABS.forEach(t=>{
@@ -1321,7 +1327,11 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     $('#saveBar').classList.toggle('show', name === 'tune');
     window.scrollTo(0,0);
     // 切页时补一次数据：日志和关于页的数据只在需要时才拉，避免开机时拖慢首屏
-    if(name === 'logs' && (BRIDGE_STATE === 'ok' || BRIDGE_STATE === 'demo')) loadLogs();
+    if(name === 'logs' && (BRIDGE_STATE === 'ok' || BRIDGE_STATE === 'demo')){
+      loadLogs();
+      // 击杀记录不在开机路径上：它要 dump 两个 logcat 缓冲，是最慢的一项
+      if(!killsLoaded){ killsLoaded = true; loadKills(); }
+    }
     if(name === 'about' && (BRIDGE_STATE === 'ok' || BRIDGE_STATE === 'demo')) loadDevice();
     if(name === 'monitor' && (BRIDGE_STATE === 'ok' || BRIDGE_STATE === 'demo')) loadMem();
   }
@@ -1333,18 +1343,53 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   });
 
   /* ---------------- sparkline ---------------- */
-  const sparkData = [52,54,53,56,58,57,55,58,61,59,57,60,63,62,60,58,61,64,62,59,57,60,58,56,59,62,61,59,57,59,58,57,59];
+  // 走势只画真实采样：每次拿到 /proc/meminfo（setHeroUsed）就往窗口里推一个点。
+  // 之前这里是一段写死的数组（52,54,53…），画完就再也不动 —— 看着在波动，其实与内存无关。
+  // 3 秒一个点 × 30 点 ≈ 最近 90 秒。
+  const SPARK_MAX = 30;
+  const SPARK = [];
+  let sparkSeeded = false;
+  // 仅 ?demo=1 效果图用的假历史（真实运行走不到这里）
+  const DEMO_SPARK = [64,65,63,66,68,67,65,68,71,70,
+                      68,69,72,71,69,67,70,73,71,68,
+                      66,69,67,65,68,71,70,68,66,69];
+
+  // 首帧没有历史，用当前值铺满画成一条平线，等真实采样从左往右接上来
+  function seedSpark(vals){
+    SPARK.length = 0;
+    (vals || []).forEach(v => SPARK.push(v));
+    sparkSeeded = true;
+    drawSpark();
+  }
+
+  function pushSpark(pct){
+    if(!isFinite(pct)) return;
+    if(!sparkSeeded){
+      const fill = [];
+      for(let i = 0; i < SPARK_MAX; i++) fill.push(pct);
+      seedSpark(fill);
+      return;
+    }
+    SPARK.push(pct);
+    while(SPARK.length > SPARK_MAX) SPARK.shift();
+    drawSpark();
+  }
+
   function drawSpark(){
-    const w = 180, h = 34, n = sparkData.length;
-    const min = Math.min.apply(null, sparkData) - 4;
-    const max = Math.max.apply(null, sparkData) + 2;
-    const pts = sparkData.map((v,i)=>{
+    const line = $('#sparkLine'), fill = $('#sparkFill');
+    if(!line || !fill) return;
+    const w = 180, h = 34, n = SPARK.length;
+    if(n < 2){ line.setAttribute('points', ''); fill.setAttribute('d', ''); return; }
+    // 纵轴是绝对刻度：0% 贴底、100% 贴顶，50% 正好落在半高。
+    // 不做「按窗口极值自适应」—— 那样同一高度在不同时刻代表不同的占用率，
+    // 看着起伏很大，却读不出"现在占了多少"。
+    const pts = SPARK.map((v,i)=>{
       const x = (i/(n-1))*w;
-      const y = h - ((v-min)/(max-min))*h;
+      const y = h - Math.max(0, Math.min(100, v)) / 100 * h;
       return x.toFixed(1)+','+y.toFixed(1);
     });
-    $('#sparkLine').setAttribute('points', pts.join(' '));
-    $('#sparkFill').setAttribute('d', 'M0,'+h+' L'+pts.join(' L')+' L'+w+','+h+' Z');
+    line.setAttribute('points', pts.join(' '));
+    fill.setAttribute('d', 'M0,'+h+' L'+pts.join(' L')+' L'+w+','+h+' Z');
   }
   drawSpark();
 
@@ -1519,10 +1564,10 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     if(v) v.textContent = algCurrent === 'auto' ? ('auto · ' + algActive) : algCurrent;
   }
 
-  async function loadAlgs(){
+  async function loadAlgs(pre){
     if(hasKsu()){
       try{
-        const out = await shell('algs');
+        const out = pre != null ? pre : await shell('algs');
         const m = {};
         String(out).trim().split(/\r?\n/).forEach(l => {
           const i = l.indexOf('=');
@@ -1771,11 +1816,55 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   });
 
 
-  let dirtyCount = 0;
-  function markDirty(){
-    dirtyCount++;
-    $('#saveSub').textContent = dirtyCount + ' 项修改未应用';
+  // 「N 项修改未应用」= 当前表单 与 最后一次生效的配置 逐项比对的结果，不是点击数。
+  // 旧实现是点一次 +1：点已经选中的档位/容量/算法也会加，把值改回原样也不会减，
+  // 数字只涨不落，跟实际待落盘的内容完全脱钩。
+  const SAVE_SUB_IDLE = $('#saveSub') ? $('#saveSub').textContent : 'VM 立即生效 · LMKD 与 ZRAM 需重启';
+  let appliedState = null;
+
+  // 只统计「保存并应用」真的会写进 config.conf 的项。
+  // 高级设置里的 VM 数值不单列：改的时候已经通过 vmset/setcache 即时写进内核，
+  // 待落盘的只有「是否处于自定义」这个状态；把数值也纳入比对，会因为
+  // loadVms 读回设备真实值而凭空多出一项。
+  function formState(){
+    return {
+      zramEnable:  $('#swZram')    && $('#swZram').checked    ? '1' : '0',
+      // 归一成「真正会写进配置的字符串」：自定义 8 GB 与直接选 8 GB 应视为同一项
+      zramSize:    zramSize.mode === 'custom' ? (zramSize.custom + 'G') : String(zramSize.mode),
+      zramAlg:     String(algCurrent || ''),
+      zramBacking: $('#swBacking') && $('#swBacking').checked ? '1' : '0',
+      lateReapply: $('#swLate')    && $('#swLate').checked    ? '1' : '0',
+      keepMode:    String(currentMode || 'strong'),
+      vmCustom:    (vmCustomKeys && Object.keys(vmCustomKeys).length) ? '1' : '0'
+    };
   }
+
+  function pendingCount(){
+    if(!appliedState) return 0;
+    const now = formState();
+    let n = 0;
+    for(const k in now){ if(String(now[k]) !== String(appliedState[k])) n++; }
+    return n;
+  }
+
+  function recountDirty(){
+    const sub = $('#saveSub');
+    if(!sub) return;
+    const n = pendingCount();
+    sub.textContent = n > 0 ? (n + ' 项修改未应用') : SAVE_SUB_IDLE;
+  }
+
+  // 记一次「已生效」：首次读到配置后、以及每次保存成功后各调一次
+  function markApplied(){ appliedState = formState(); }
+
+  // 保留旧入口名，语义从「+1」改成「重算」—— 所有改动入口都已经在调它
+  function markDirty(){ recountDirty(); }
+
+  // 三个开关此前没有任何监听：拨动开关既不计数、按钮状态也不变
+  ['#swZram', '#swBacking', '#swLate'].forEach(sel => {
+    const el = $(sel);
+    if(el) el.addEventListener('change', recountDirty);
+  });
 
   // 保存：先写主配置，再按当前档位/自定义写高级设置。
   // 之前这里只弹了个 toast —— 一个字节都没落盘，所以"保存后重进又是默认值"。
@@ -1790,7 +1879,6 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     };
 
     if(!hasKsu()){
-      dirtyCount = 0;
       $('#saveSub').textContent = '未连接模块，无法写入';
       toast('未连接模块环境，配置未写入');
       return;
@@ -1816,10 +1904,11 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
         await shell('vmreset', 10000);
       }
 
-      dirtyCount = 0;
+      markApplied();
       $('#saveSub').textContent = '已写入 config.conf';
       toast('已保存 · ZRAM 变更重启后生效');
-      setTimeout(()=>{ $('#saveSub').textContent = 'VM 立即生效 · LMKD 与 ZRAM 需重启'; }, 2400);
+      // 2.4 秒后回到常态文案；期间用户若又改了东西，重算会给出正确的待应用数
+      setTimeout(recountDirty, 2400);
     }catch(e){
       $('#saveSub').textContent = '保存失败';
       toast('保存失败：' + (e && e.message ? e.message : '未知错误'));
@@ -1829,7 +1918,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
 
   // 回读配置：之前前端只写不读，所以每次进来都回到默认值
   let currentMode = 'strong';
-  async function loadConfig(){
+  async function loadConfig(pre){
     if(!hasKsu()){
       if(DEMO){
         currentMode = 'strong';
@@ -1843,7 +1932,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
       return;
     }
     try{
-      const out = await shell('config', 15000);
+      const out = pre != null ? pre : await shell('config', 15000);
       const m = {};
       String(out).trim().split(/\r?\n/).forEach(l => {
         const i = l.indexOf('=');
@@ -2007,7 +2096,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     }
   }
 
-  async function loadLogs(){
+  async function loadLogs(pre){
     if(!hasKsu()){
       LOGS = DEMO ? parseLogs(DEMO_LOG_TEXT) : [];
       KILLS = DEMO ? parseKills(DEMO_KILL_TEXT) : [];
@@ -2015,12 +2104,23 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
       return;
     }
     try{
-      const out = await shell('logs 200', 20000);
+      const out = pre != null ? pre : await shell('logs 200', 20000);
       LOGS = parseLogs(out);
     }catch(e){ LOGS = []; }
+    renderLogs(logFilter);
+  }
+
+  // 击杀记录要 dump 两个 logcat 缓冲（各 1500 行）再 grep，是所有子命令里最慢的一项
+  // （实测比 mem 慢一到两个数量级）。它在首屏用不到，所以从开机流程里摘出来，
+  // 进「日志」页时再读。
+  async function loadKills(){
+    if(!hasKsu()){
+      KILLS = DEMO ? parseKills(DEMO_KILL_TEXT) : [];
+      renderLogs(logFilter);
+      return;
+    }
     try{
-      const k = await shell('kills 60', 25000);
-      KILLS = parseKills(k);
+      KILLS = parseKills(await shell('kills 60', 25000));
     }catch(e){ KILLS = []; }
     renderLogs(logFilter);
   }
@@ -2232,37 +2332,57 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     if(t) t.textContent = '/ ' + (totalKb / 1048576).toFixed(1) + ' GB';
     if(p) p.innerHTML = Math.round(pct) + '<i>%</i>';
     if(arc) arc.setAttribute('stroke-dashoffset', (RING_C * (1 - pct / 100)).toFixed(1));
+    pushSpark(pct);   // 波图与环形同源，涨就是涨、跌就是跌
   }
 
   function gb(kb){ return (kb / 1048576).toFixed(1); }
 
-  function setZram(usedKb, diskKb, origKb){
-    if(diskKb > 0 && usedKb >= 0){
-      const pct = Math.max(0, Math.min(100, usedKb / diskKb * 100));
+  // ZRAM 三个口径必须分清，否则「占用率」跟系统对不上：
+  //   data  未压缩数据量 orig_data_size，和 disksize 同量纲 —— 进度条/占用率/「x / y GB」只能用它，
+  //         它同时也是 `free` 里看到的 swap used，用户拿系统和别的管理器一对照就是同一个数
+  //   compr 压缩后数据量 compr_data_size —— 真实压缩比 = data / compr
+  //   mem   zram 实际吃掉的物理内存 mem_used —— 净省 = data - mem
+  // 旧实现拿 mem/disk 算占用率：两个不同量纲相除，1.7 GB 物理占用 / 8 GB 容量 = 21%，
+  // 而同一时刻系统里这块 swap 已经吃掉 5.2 GB（65%），差了三倍多。
+  function setZram(z){
+    const disk = +z.disk || 0, data = +z.data || 0, compr = +z.compr || 0, mem = +z.mem || 0;
+    if(disk > 0){
+      const pct = Math.max(0, Math.min(100, data / disk * 100));
       const bar = $('#zramBar'); if(bar) bar.style.width = pct.toFixed(1) + '%';
       const pc = $('#zramPct'); if(pc) pc.textContent = Math.round(pct) + '%';
-      const u = $('#zramUse'); if(u) u.textContent = gb(usedKb) + ' / ' + gb(diskKb) + ' GB';
+      const u = $('#zramUse'); if(u) u.textContent = gb(data) + ' / ' + gb(disk) + ' GB';
     }
-    if(usedKb > 0 && origKb > 0){
-      const ra = $('#zramRatio'); if(ra) ra.textContent = (origKb / usedKb).toFixed(2) + '×';
-      const sv = $('#zramSaved'); if(sv) sv.textContent = gb(Math.max(0, origKb - usedKb)) + ' GB';
+    // 压缩比的分母是压缩后大小；个别老内核读不到 compr 时才退回 mem（会略低估）
+    const den = compr > 0 ? compr : mem;
+    if(data > 0 && den > 0){
+      const ra = $('#zramRatio'); if(ra) ra.textContent = (data / den).toFixed(2) + '×';
+    }
+    if(data > 0 && mem > 0){
+      const sv = $('#zramSaved'); if(sv) sv.textContent = gb(Math.max(0, data - mem)) + ' GB';
+    }
+    if(mem > 0){
+      const mo = $('#zramMem'); if(mo) mo.textContent = gb(mem) + ' GB';
     }
   }
 
-  async function loadMem(){
+  async function loadMem(pre){
     if(!hasKsu() && !DEMO) return;
     if(DEMO){   // 画效果图用的完整演示数据，保持各项数值自洽
       RAM_GB = 11.7;
-      setHeroUsed(8.1 * 1048576, 11.7 * 1048576);
+      if(!sparkSeeded) seedSpark(DEMO_SPARK);
+      // 每次 tick 给一点点抖动：让「波图跟着数值走」在截图里也看得出来
+      const jitter = (Math.random() - 0.5) * 0.3;
+      setHeroUsed((8.1 + jitter) * 1048576, 11.7 * 1048576);
       const a = $('#memAvail'); if(a) a.textContent = '3.6 GB';
       const c = $('#memCached'); if(c) c.textContent = '3.4 GB';
-      setZram(3.0 * 1048576, 8.0 * 1048576, 9.4 * 1048576);
+      setZram({ data: 5.2 * 1048576, disk: 8.0 * 1048576,
+                compr: 1.55 * 1048576, mem: 1.7 * 1048576 });
       const chip = $('#zramAlgChip'); if(chip) chip.innerHTML = '<span class="dot"></span>zstd';
       const dv = $('#devRam'); if(dv) dv.textContent = '11.7 GB';
       return;
     }
     try{
-      const out = await shell('mem');
+      const out = pre != null ? pre : await shell('mem');
       const m = {};
       String(out).trim().split(/\r?\n/).forEach(l => {
         const i = l.indexOf('=');
@@ -2281,10 +2401,13 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
         const c = $('#memCached'); if(c) c.textContent = gb(cached) + ' GB';
         const dv = $('#devRam'); if(dv) dv.textContent = gb(total) + ' GB';
       }
-      // zram 的三个值单位都是字节
-      setZram(Math.round((+m.zram_used || 0) / 1024),
-              Math.round((+m.zram_disk || 0) / 1024),
-              Math.round((+m.zram_orig || 0) / 1024));
+      // zram 的四个值单位都是字节（mm_stat 口径）
+      setZram({
+        data:  Math.round((+m.zram_orig  || 0) / 1024),
+        disk:  Math.round((+m.zram_disk  || 0) / 1024),
+        compr: Math.round((+m.zram_compr || 0) / 1024),
+        mem:   Math.round((+m.zram_used  || 0) / 1024)
+      });
       const alg = $('#zramAlgChip');
       if(alg && m.zram_alg) alg.innerHTML = '<span class="dot"></span>' + esc(m.zram_alg);
       // PSI：avg10 是「最近 10 秒有多少比例的时间在等内存」，比占用率更能说明紧不紧
@@ -2302,21 +2425,21 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     }catch(e){ console.warn('[mem]', e && (e.message || e)); }
   }
 
-  async function loadProcs(){
+  async function loadProcs(pre, keepPre){
     if(!hasKsu()){
       PROCS = DEMO ? MOCK_PROCS.map(x => Object.assign({}, x)) : [];
       if(DEMO) KEPT_COUNT = 2;
       return;
     }
     try{
-      const out = await shell('procs 60', 20000);
+      const out = pre != null ? pre : await shell('procs 60', 20000);
       const rows = String(out).trim().split(/\r?\n/).filter(Boolean).map(line => {
         const c = line.split('\t');
         return { pid: +c[0], uid: +c[1], adj: +c[2], rss: +c[3], name: c[4] || '?' };
       }).filter(r => r.pid > 0);
       let keptMap = {};
       try{
-        const kl = await shell('keep list');
+        const kl = keepPre != null ? keepPre : await shell('keep list');
         String(kl).trim().split(/\r?\n/).filter(Boolean).forEach(l => {
           const [k, t] = l.split(/\s+/);
           if(k) keptMap[k] = t;
@@ -2900,7 +3023,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
       setTimeout(()=>{ btn.style.transition = 'none'; btn.style.transform = 'none'; }, 520);
     }
     if(BRIDGE_STATE !== 'ok' && BRIDGE_STATE !== 'demo'){ toast('未连接模块，无法刷新'); return; }
-    await Promise.allSettled([ loadMem(), loadProcs().then(renderAll), loadDevice(), loadLogs() ]);
+    await Promise.allSettled([ loadMem(), loadProcs().then(renderAll), loadDevice(), loadLogs(), loadKills() ]);
     appsLoaded = false;
     toast('已刷新');
   }
@@ -2924,20 +3047,58 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     if(!document.hidden && (BRIDGE_STATE === 'ok' || BRIDGE_STATE === 'demo')) loadMem();
   });
 
+  /* ---------------- 首屏取数 ---------------- */
+  // 每调一次 shell 就是一个 root shell 进程（100–300ms 的固定开销，中低端机更高）。
+  // 之前首屏要发 8 次，光固定开销就上秒；现在合并成一次 `boot`，按 ###TAG 切成段。
+  // 击杀记录（logcat dump）不在这里 —— 见 loadKills。
+  function parseSections(out){
+    const sec = {}; let cur = null;
+    String(out).split(/\r?\n/).forEach(l => {
+      const t = l.trim();
+      if(/^###[A-Z]+$/.test(t)){ cur = t.slice(3); sec[cur] = []; return; }
+      if(cur) sec[cur].push(l);
+    });
+    const pick = k => (sec[k] || []).join('\n');
+    const boot = { MEM: pick('MEM'), CAPS: pick('CAPS'), ALGS: pick('ALGS'),
+                   CONFIG: pick('CONFIG'), PROCS: pick('PROCS'), KEEP: pick('KEEP'),
+                   LOGS: pick('LOGS') };
+    boot.ok = Object.prototype.hasOwnProperty.call(sec, 'MEM') &&
+              Object.prototype.hasOwnProperty.call(sec, 'PROCS');
+    return boot;
+  }
+
+  async function loadBoot(){
+    return parseSections(await shell('boot 60', 20000));
+  }
+
   /* ---------------- boot ---------------- */
   (async ()=>{
     await detectBridge();
     updateStateChip();
-    await Promise.allSettled([
-      loadConfig(),                        // 先回读配置，避免用户看到默认值
-      loadProcs().then(renderAll),
-      loadMem(),
-      loadDevice(),
-      loadAlgs(),
-      loadLogs()
-    ]);
+    // 一次取全（老版本模块没有 boot 子命令时回落到逐项拉取）
+    let boot = null;
+    if(BRIDGE_STATE === 'ok'){
+      try{ boot = await loadBoot(); }catch(e){ boot = null; }
+    }
+    if(boot && boot.ok){
+      await Promise.allSettled([
+        loadConfig(boot.CONFIG),           // 先回读配置，避免用户看到默认值
+        loadProcs(boot.PROCS, boot.KEEP).then(renderAll),
+        loadMem(boot.MEM),
+        loadDevice(boot.CAPS),
+        loadAlgs(boot.ALGS),
+        loadLogs(boot.LOGS)
+      ]);
+    }else{
+      await Promise.allSettled([
+        loadConfig(), loadProcs().then(renderAll), loadMem(), loadDevice(), loadAlgs(), loadLogs()
+      ]);
+    }
     updateStateChip();
     renderLogs(logFilter);
+    // 首屏数据（含 config）都到位了，此刻的表单就是「已生效状态」，从这里开始算修改项
+    markApplied();
+    recountDirty();
     startLive();
   })();
   const qTab = params.get('tab');
