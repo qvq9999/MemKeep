@@ -16,7 +16,7 @@
 
 从 [Releases](https://github.com/qvq9999/MemKeep/releases) 下载最新 ZIP，在 root 管理器里刷入，重启。
 
-支持在线更新：模块内置 `updateJson`，管理器检测到新版本会直接显示「更新」按钮，下载走 jsDelivr 镜像，国内无需代理。
+支持在线更新：模块内置 `updateJson`（托管在 GitHub Pages，发版后约 10 分钟生效），管理器检测到新版本会直接显示「更新」按钮，安装包从 GitHub Release 直链下载。
 
 ## 打开图形界面
 

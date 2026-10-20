@@ -174,6 +174,9 @@ cmd_vms() {
     v=$(cat "/proc/sys/vm/$k" 2>/dev/null)
     [ -n "$v" ] && printf '%s=%s\n' "$k" "$v"
   done
+  # 缓存进程上限不属于 /proc/sys/vm，单独从 ActivityManager 取
+  amc=$(device_config get activity_manager max_cached_processes 2>/dev/null)
+  [ -n "$amc" ] && printf 'max_cached_processes=%s\n' "$amc"
 }
 
 # 压缩算法能力探测。
@@ -245,6 +248,13 @@ cmd_caps() {
   [ -e /sys/block/zram0/backing_dev ] && echo "writeback=1" || echo "writeback=0"
   [ -e /sys/kernel/mm/lru_gen/enabled ] && echo "mglru=1" || echo "mglru=0"
   [ -e /proc/sys/vm/compaction_proactiveness ] && echo "compact=1" || echo "compact=0"
+  gpid=$(cat "$MODDIR/guard.pid" 2>/dev/null)
+  if [ -n "$gpid" ] && [ -d "/proc/$gpid" ]; then
+    echo "guard=1"
+  else
+    echo "guard=0"
+  fi
+  echo "amcache=$(device_config get activity_manager max_cached_processes 2>/dev/null)"
   if [ -d /data/adb/ksu ]; then
     echo "root=KernelSU"
   elif [ -d /data/adb/ap ]; then
@@ -254,6 +264,27 @@ cmd_caps() {
   else
     echo "root=unknown"
   fi
+}
+
+# 读日志尾部。给前端解析成时间轴，路径与权限都在这里处理。
+cmd_logs() {
+  n="${1:-200}"
+  case "$n" in ''|*[!0-9]*) n=200 ;; esac
+  f="$MODDIR/memkeep.log"
+  [ -f "$f" ] || return 0
+  tail -n "$n" "$f" 2>/dev/null
+}
+
+# 缓存进程上限（原 device_config 项）。单独成一个子命令，
+# 因为它是 ActivityManager 的配置，不属于 /proc/sys/vm。
+cmd_setcache() {
+  n="$1"
+  case "$n" in ''|*[!0-9]*) echo "REFUSE_INVALID"; return 1 ;; esac
+  [ "$n" -lt 64 ] || [ "$n" -gt 512 ] || { echo "REFUSE_RANGE 64 512"; return 1; }
+  set_conf_kv AM_CACHE_MAX "$n"
+  device_config put activity_manager max_cached_processes "$n" >/dev/null 2>&1
+  device_config put activity_manager max_phantom_processes "$n" >/dev/null 2>&1
+  echo "OK $n"
 }
 
 cmd_keep_list() {
@@ -315,6 +346,7 @@ cmd_keep_apply() {
 # 间隔 5s 而不是竞品的 100ms —— oom_score_adj 只在应用切前后台那几个时刻被改写，
 # 5s 足够跟上；sleep 不持有 wakelock，休眠时不会把设备唤醒，耗电可忽略。
 cmd_keep_guard() {
+  echo $$ > "$MODDIR/guard.pid" 2>/dev/null
   while true; do
     cmd_keep_apply >/dev/null 2>&1
     sleep 5
@@ -332,6 +364,8 @@ case "$1" in
   vmreset)   cmd_vmreset ;;
   algs)      cmd_algs ;;
   caps)      cmd_caps ;;
+  logs)      cmd_logs "$2" ;;
+  setcache)  cmd_setcache "$2" ;;
   keep)
     case "$2" in
       list)  cmd_keep_list ;;

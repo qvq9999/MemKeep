@@ -1,7 +1,7 @@
 id=memkeep_plus
 name=MemKeep++
-version=v3.0
-versionCode=30000
+version=v3.1
+versionCode=30100
 author=Codex
 description=KernelSU / APatch / Magisk module for memory management, configurable zram, and stronger background app retention. WebUI included.
 updateJson=https://qvq9999.github.io/MemKeep/update.json

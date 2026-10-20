@@ -27,6 +27,7 @@ load_config() {
   VM_PAGE_CLUSTER=0
   VM_DIRTY_RATIO=18
   VM_COMPACT=15
+  AM_CACHE_MAX=0
 
   [ -f "$CONFIG" ] && . "$CONFIG"
 }
@@ -222,6 +223,12 @@ apply_vm_tuning() {
 }
 
 apply_background_retention() {
+  # 手动覆盖优先：WebUI 的「缓存进程上限」写进 AM_CACHE_MAX
+  if [ "${AM_CACHE_MAX:-0}" -gt 0 ] 2>/dev/null; then
+    device_config put activity_manager max_cached_processes "$AM_CACHE_MAX" >/dev/null 2>&1
+    device_config put activity_manager max_phantom_processes "$AM_CACHE_MAX" >/dev/null 2>&1
+    log_msg "background retention applied: mode=custom am_cache=$AM_CACHE_MAX"
+  else
   case "$KEEP_MODE" in
     balanced)
       device_config put activity_manager max_cached_processes 128 >/dev/null 2>&1
@@ -236,6 +243,7 @@ apply_background_retention() {
       device_config put activity_manager max_phantom_processes 256 >/dev/null 2>&1
       ;;
   esac
+  fi
 
   device_config put activity_manager use_compaction true >/dev/null 2>&1
   device_config put mglru_native lru_gen_config all >/dev/null 2>&1
@@ -249,7 +257,7 @@ apply_background_retention() {
   resetprop_safe persist.sys.preload.enable false
   resetprop_safe persist.sys.precache.enable false
 
-  log_msg "background retention applied: mode=$KEEP_MODE"
+  [ "${AM_CACHE_MAX:-0}" -gt 0 ] 2>/dev/null || log_msg "background retention applied: mode=$KEEP_MODE"
 }
 
 apply_lmk_props() {

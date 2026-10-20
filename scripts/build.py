@@ -110,12 +110,6 @@ def build(version):
     if fixed:
         print("normalized CRLF -> LF in %d file(s)" % fixed)
 
-    # 同步一份到 release/，这个目录要提交进仓库，jsDelivr 从这里取包
-    os.makedirs(RELEASE_DIR, exist_ok=True)
-    published = os.path.join(RELEASE_DIR, os.path.basename(target))
-    if os.path.abspath(published) != os.path.abspath(target):
-        shutil.copyfile(target, published)
-    print("published: %s  (jsDelivr 从这里分发)" % os.path.relpath(published, ROOT))
     return target
 
 
@@ -126,7 +120,9 @@ def sync_update_json(version, code, repo, zip_name, zip_base=None):
     且文件名带版本号 = 每次都是新路径 = 不会命中 12 小时的旧缓存。
     换成自建镜像时传 zip_base 即可。
     """
-    base = zip_base or ("https://gcore.jsdelivr.net/gh/%s@main/release" % repo)
+    # 默认走 GitHub Release 直链：zip 不再提交进仓库，release/ 目录已废弃。
+    # 需要镜像时用 --zip-base 覆盖即可。
+    base = zip_base or ("https://github.com/%s/releases/download/%s" % (repo, version))
     base = base.replace("{repo}", repo).replace("{version}", version).rstrip("/")
     data = {
         "version": version,

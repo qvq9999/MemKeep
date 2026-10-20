@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -621,13 +621,13 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
               </defs>
               <circle class="trk" cx="56" cy="56" r="47"/>
               <circle class="arc" id="ringArc" cx="56" cy="56" r="47"
-                      stroke-dasharray="295.3" stroke-dashoffset="121"/>
+                      stroke-dasharray="295.3" stroke-dashoffset="295.3"/>
             </svg>
-            <div class="ring-c"><b id="ringPct">59<i>%</i></b><span>占用</span></div>
+            <div class="ring-c"><b id="ringPct">—</b><span>占用</span></div>
           </div>
           <div class="hero-info">
             <div class="hero-k">已用内存</div>
-            <div class="hero-v"><b class="num" id="memUsed">6.9</b><span>GB</span><em id="memTotal">/ 11.7 GB</em></div>
+            <div class="hero-v"><b class="num" id="memUsed">—</b><span>GB</span><em id="memTotal">/ —</em></div>
             <div class="spark">
               <svg id="sparkSvg" viewBox="0 0 180 34" preserveAspectRatio="none">
                 <defs>
@@ -644,20 +644,20 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
           </div>
         </div>
         <div class="hero-stats">
-          <div><i>可用</i><b class="num" id="memAvail">4.8 GB</b></div>
-          <div><i>缓存</i><b class="num" id="memCached">3.6 GB</b></div>
+          <div><i>可用</i><b class="num" id="memAvail">—</b></div>
+          <div><i>缓存</i><b class="num" id="memCached">—</b></div>
         </div>
 
         <div class="zram-blk">
           <div class="zrow">
-            <div class="zt">ZRAM<span class="chip ok zchip"><span class="dot"></span>zstd</span></div>
-            <span class="zpct num" id="zramPct">38%</span>
+            <div class="zt">ZRAM<span class="chip zchip" id="zramAlgChip"><span class="dot"></span>—</span></div>
+            <span class="zpct num" id="zramPct">—</span>
           </div>
-          <div class="bar"><i id="zramBar" style="width:38%"></i></div>
+          <div class="bar"><i id="zramBar" style="width:0%"></i></div>
           <div class="zmeta">
-            <span><b class="num" id="zramUse">3.0 / 8.0 GB</b></span>
-            <span>压缩比 <b class="num" id="zramRatio">3.12×</b></span>
-            <span>净省 <b class="num" style="color:var(--ac)" id="zramSaved">6.4 GB</b></span>
+            <span><b class="num" id="zramUse">— / —</b></span>
+            <span>压缩比 <b class="num" id="zramRatio">—</b></span>
+            <span>净省 <b class="num" style="color:var(--ac)" id="zramSaved">—</b></span>
           </div>
         </div>
       </div>
@@ -665,7 +665,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
       <div class="card procs">
         <div class="card-hd">
           <h3>进程内存</h3>
-          <span class="hint" id="procCount">按 RSS 排序</span>
+          <span class="hint" id="procCount">读取中…</span>
         </div>
         <div class="plist" id="homeProcs"></div>
         <button class="more-btn" data-action="openprocs">
@@ -679,9 +679,8 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
           <div class="t">后台保活</div>
           <span class="chip" style="height:24px;font-size:11px;color:var(--ac);border-color:var(--ac-line);background:var(--ac-soft)">增强</span>
         </div>
-        <div class="ret-line"><span>保护中应用</span><b class="num" id="keptCount">3 <em style="font-style:normal;color:var(--tx3);font-weight:400">个</em></b></div>
-        <div class="ret-line"><span>守护进程</span><b style="font-weight:550;color:var(--ac)">运行中</b></div>
-        <div class="ret-line"><span>缓存进程上限</span><b class="num">256</b></div>
+        <div class="ret-line"><span>保护中应用</span><b class="num" id="keptCount">—</b></div>
+        <div class="ret-line"><span>守护进程</span><b style="font-weight:550" id="guardState">—</b></div>
       </div>
 
       <div class="insight">
@@ -751,26 +750,17 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
 
       <div class="sect"><h2>后台保活</h2></div>
       <div class="card grp">
-        <div class="row block">
-          <div class="txt" style="display:flex;align-items:center;justify-content:space-between">
-            <strong>缓存进程上限</strong><span class="val" id="cacheVal">256</span>
-          </div>
-          <div class="range-wrap" style="padding:4px 0 0">
-            <input type="range" id="cacheRange" min="64" max="512" step="32" value="256" style="--p:43%">
-            <div class="range-lb"><span>64 · 省内存</span><span>512 · 耐多开</span></div>
-          </div>
-        </div>
         <div class="row">
           <div class="txt"><strong>延迟重应用</strong><small>开机稳定 90 秒后补一次关键参数</small></div>
           <label class="sw"><input type="checkbox" checked><i></i></label>
         </div>
       </div>
 
-      <div class="sect"><h2>高级</h2><span class="more">跟随保活强度</span></div>
+      <div class="sect"><h2>高级设置</h2><span class="more">点任意项调整</span></div>
       <div class="card grp">
-        <button class="row vm-toggle"> 
-          <div class="txt"><strong>VM 内核参数</strong><small>swappiness · watermark · min_free_kbytes 等 6 项</small></div>
-          <span class="val" id="vmChev">查看</span>
+        <button class="row vm-toggle">
+          <div class="txt"><strong>全部配置项</strong><small>缓存进程上限 · swappiness · watermark 等 7 项</small></div>
+          <span class="val" id="vmChev">展开</span>
           <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
         </button>
         <div class="vm-list" id="vmList" hidden></div>
@@ -803,7 +793,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     <!-- ================= 关于 ================= -->
     <section class="view" id="view-about">
       <div class="card about-hd">
-        <div class="v"><h3 class="num">v3.0</h3><span class="chip ok" style="height:23px;font-size:11px">已是最新</span></div>
+        <div class="v"><h3 class="num">v3.1</h3><span class="chip ok" style="height:23px;font-size:11px">已是最新</span></div>
         <p>内核级内存管理模块：重建 ZRAM 压缩交换区、调整 VM 水位与 LMKD 策略，让后台应用留得更久。</p>
         <button class="about-link" data-action="update"><span id="updLabel">检查更新</span>
           <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
@@ -837,8 +827,8 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
         <div class="theme-row" style="padding-top:10px">
           <div class="seg" id="themeSeg" style="width:100%">
             <button data-theme-val="auto">跟随系统</button>
-            <button data-theme-val="dark" class="on">深色</button>
-            <button data-theme-val="light">浅色</button>
+            <button data-theme-val="dark">深色</button>
+            <button data-theme-val="light" class="on">浅色</button>
           </div>
         </div>
       </div>
@@ -936,6 +926,8 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   const $ = (s,r)=> (r||document).querySelector(s);
   const $$ = (s,r)=> Array.from((r||document).querySelectorAll(s));
   const params = new URLSearchParams(location.search);
+  // 只有显式带 ?demo=1 才用演示数据（画效果图用）；正式环境一律走真实数据
+  const DEMO = params.get('demo') === '1';
 
   /* ---------------- theme ---------------- */
   const THEME_KEY = 'memkeep:theme';
@@ -947,8 +939,8 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     if(seg) $$('button',seg).forEach(b=>b.classList.toggle('on', b.dataset.themeVal === mode));
   }
   const forcedTheme = params.get('theme');
-  let savedTheme = 'dark';
-  try{ savedTheme = localStorage.getItem(THEME_KEY) || 'dark'; }catch(e){}
+  let savedTheme = 'light';
+  try{ savedTheme = localStorage.getItem(THEME_KEY) || 'light'; }catch(e){}
   applyTheme(forcedTheme || savedTheme);
 
   $('#themeSeg') && $('#themeSeg').addEventListener('click', e=>{
@@ -977,11 +969,14 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   }
 
   async function loadCaps(){
-    if(!ksuApi()){
-      // 演示数据：按一台现代旗舰内核填写，仅用于原型展示
-      const m = { model:'realme GT7 Pro', android:'15', sdk:'35', kernel:'6.6.56-android15',
-                  root:'KernelSU', zram:'1', recompress:'1', writeback:'0', mglru:'1', compact:'1' };
-      fillCaps(m);
+    if(!hasKsu()){
+      if(DEMO){
+        fillCaps({ model:'realme GT7 Pro', android:'15', sdk:'35', kernel:'6.6.56-android15',
+                   root:'KernelSU', zram:'1', recompress:'1', writeback:'0', mglru:'1', compact:'1', guard:'1' });
+      }else{
+        ['devModel','devOs','devKernel','devRoot'].forEach(id=>{ const el=$('#'+id); if(el) el.textContent='读取失败'; });
+        ['zram','alg','recompress','writeback','mglru','compact'].forEach(k=>setCap(k, null, '未知'));
+      }
       return;
     }
     try{
@@ -1004,6 +999,11 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     const ram = $('#devRam');
     if(ram && (!ram.textContent || ram.textContent === '—')) ram.textContent = RAM_GB.toFixed(1) + ' GB';
 
+    const gs = $('#guardState');
+    if(gs){
+      gs.textContent = m.guard === '1' ? '运行中' : '未运行';
+      gs.style.color = m.guard === '1' ? 'var(--ac)' : 'var(--tx3)';
+    }
     const yes = v => v === '1';
     setCap('zram', yes(m.zram), yes(m.zram) ? '可用' : '缺失');
     setCap('recompress', yes(m.recompress), yes(m.recompress) ? '可用' : '不支持');
@@ -1020,7 +1020,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
 
   /* ---------------- 在线更新 ---------------- */
   // 版本源：与 module.prop 的 versionCode 同编码（MAJOR*10000 + MINOR*100 + PATCH）
-  const APP = {version:'v3.0', code:30000};
+  const APP = {version:'v3.1', code:30100};
   const UPD_REPO = 'qvq9999/MemKeep';
   // jsDelivr 有多个边缘域名，国内经常只有其中一两个可用（实测 cdn 整段不通、gcore 正常），
   // 所以并发打四个，谁先成功用谁。raw.githubusercontent 作为最后兜底。
@@ -1036,62 +1036,124 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   const shq = v => "'" + String(v).replace(/'/g, "'\\''") + "'";
 
   function ksuApi(){
-    // KernelSU / KernelSU-Next / SukiSU / APatch 的管理器都注入 ksu 或 KSU
+    // KernelSU / KernelSU-Next / SukiSU / APatch 的管理器注入 ksu 或 KSU；
+    // MMRL（WebUI X）注入 $ackg；Magisk 需要装 KsuWebUI Standalone 或 MMRL 才有这层桥。
     if(window.ksu && typeof window.ksu.exec === 'function') return window.ksu;
     if(window.KSU && typeof window.KSU.exec === 'function') return window.KSU;
-    // MMRL / WebUI X 注入 $ackg；Magisk 用户需要装 KsuWebUI Standalone 或 MMRL 才有这层桥
     if(window.$ackg && typeof window.$ackg.exec === 'function') return window.$ackg;
     return null;
   }
-  // 兼容三类返回：callback(errno,out,err) / Promise<{errno,stdout,stderr}> / Promise<string>
-  function exec(cmd){
+  function hasKsu(){ return !!ksuApi(); }
+
+  // ---- 执行通道 ----
+  // 各家实现调用约定不一样：
+  //   KernelSU 官方：exec(cmd, '{}', '回调函数名')   ← 第三个参数是字符串
+  //   KsuWebUI Standalone：exec(cmd, {}, 回调函数)
+  //   MMRL / 部分实现：exec(cmd) 返回 Promise
+  // 不猜，启动时用 echo 逐个试，记住能用的那种；探测不出来就标记桥接失败，
+  // 界面显示"无法连接"而不是编数据。
+  let EXEC_MODE = null;
+  let BRIDGE_STATE = 'unknown';   // ok | no-body | fail
+
+  function execRaw(mode, cmd, timeoutMs){
     const api = ksuApi();
-    if(!api) return Promise.reject(new Error('no webui bridge'));
-    return new Promise((res, rej)=>{
+    if(!api) return Promise.reject(new Error('NO_BRIDGE'));
+    const limit = timeoutMs || 12000;
+    return new Promise((resolve, reject)=>{
       let done = false;
-      const settle = (v)=>{
+      const settleNum = (errno, out, err)=>{
         if(done) return; done = true;
-        if(v && typeof v === 'object'){
-          const code = v.errno != null ? v.errno : (v.code != null ? v.code : 0);
-          if(typeof code === 'number' && code !== 0) rej(new Error(v.stderr || v.stdout || ('exit ' + code)));
-          else res(v.stdout != null ? v.stdout : (v.result || ''));
-        }else res(String(v == null ? '' : v));
+        if(typeof errno === 'number' && errno !== 0) reject(new Error(err || out || ('exit ' + errno)));
+        else resolve(typeof errno === 'number' ? (out || '') : String(errno == null ? '' : errno));
       };
-      const finish = (errno, out, err)=>{
+      const settleAny = (v)=>{
         if(done) return;
-        if(typeof errno === 'number'){
-          done = true;
-          if(errno !== 0) rej(new Error(err || out || ('exit ' + errno)));
-          else res(out || '');
-        }else settle(errno);
+        if(v && typeof v === 'object' && v.errno != null) return settleNum(v.errno, v.stdout, v.stderr);
+        done = true;
+        resolve(String(v == null ? '' : v));
       };
+      const timer = setTimeout(()=>{ if(!done){ done = true; reject(new Error('TIMEOUT')); } }, limit);
+      const cb = (a, b, c)=>{ clearTimeout(timer); settleNum(a, b, c); };
       try{
         let r;
-        if(api.exec.length >= 3) r = api.exec(cmd, {}, finish);
-        else if(api.exec.length === 2) r = api.exec(cmd, finish);
-        else r = api.exec(cmd);
-        if(r && typeof r.then === 'function'){ r.then(settle, e=>{ if(!done){done=true; rej(e);} }); }
-        else if(r !== undefined) settle(r);
-      }catch(e){ if(!done){ done = true; rej(e); } }
+        if(mode === 'name'){
+          const name = '__mk_cb_' + (++EXEC_MODE_SEQ);
+          window[name] = cb;
+          r = api.exec(cmd, '{}', name);
+        }else if(mode === 'fn3'){
+          r = api.exec(cmd, {}, cb);
+        }else if(mode === 'fn2'){
+          r = api.exec(cmd, cb);
+        }else{
+          r = api.exec(cmd);
+        }
+        if(r && typeof r.then === 'function'){
+          r.then(v=>{ clearTimeout(timer); settleAny(v); }, e=>{ clearTimeout(timer); if(!done){ done = true; reject(e); } });
+        }else if(mode === 'promise' && r !== undefined){
+          clearTimeout(timer); settleAny(r);
+        }
+      }catch(e){
+        clearTimeout(timer);
+        if(!done){ done = true; reject(e); }
+      }
     });
   }
-  // fetch 优先；WebView 若被 CORS/证书拦住，退到 root shell 的 curl / wget
-  async function httpGet(url, ms){
-    try{
-      const ac = new AbortController();
-      const t = setTimeout(()=>ac.abort(), ms || 6000);
-      const r = await fetch(url, { signal: ac.signal, cache: 'no-store' });
-      clearTimeout(t);
-      if(r.ok) return await r.text();
-    }catch(e){}
-    for(const bin of ['curl -fsSL', 'wget -q -O -']){
+  let EXEC_MODE_SEQ = 0;
+
+  function exec(cmd, timeoutMs){
+    if(EXEC_MODE) return execRaw(EXEC_MODE, cmd, timeoutMs);
+    if(!ksuApi()) return Promise.reject(new Error('NO_BRIDGE'));
+    // 还没探测过（或探测失败后又有调用）：按最可能成功的顺序串行试
+    const modes = ['name', 'fn3', 'fn2', 'promise'];
+    return (async ()=>{
+      let lastErr = null;
+      for(const m of modes){
+        try{
+          const out = await execRaw(m, cmd, timeoutMs || 8000);
+          EXEC_MODE = m;
+          BRIDGE_STATE = 'ok';
+          return out;
+        }catch(e){
+          lastErr = e;
+          if(e && e.message === 'NO_BRIDGE') break;
+        }
+      }
+      throw lastErr || new Error('EXEC_FAIL');
+    })();
+  }
+
+  // 启动时探测一次调用约定。探测不出来就如实显示"未连接"，
+  // 绝不静默回落到模拟数据 —— 那会让人以为模块没工作。
+  async function detectBridge(){
+    if(DEMO){ BRIDGE_STATE = 'demo'; return; }
+    if(!ksuApi()){ BRIDGE_STATE = 'no-body'; return; }
+    for(const m of ['name', 'fn3', 'fn2', 'promise']){
       try{
-        const out = await exec(bin + ' ' + shq(url) + ' 2>/dev/null');
-        if(out && out.trim()) return out;
+        const out = await execRaw(m, 'echo __mk_probe__', 5000);
+        if(String(out).indexOf('__mk_probe__') >= 0){ EXEC_MODE = m; BRIDGE_STATE = 'ok'; return; }
       }catch(e){}
     }
-    return null;
+    BRIDGE_STATE = 'fail';
   }
+
+  function updateStateChip(){
+    const chip = $('#stateChip');
+    if(!chip) return;
+    chip.classList.remove('ok', 'warn');
+    if(BRIDGE_STATE === 'ok'){
+      chip.classList.add('ok'); chip.innerHTML = '<span class="dot"></span>已连接';
+    }else if(BRIDGE_STATE === 'demo'){
+      chip.classList.add('ok'); chip.innerHTML = '<span class="dot"></span>演示数据';
+    }else{
+      chip.classList.add('warn');
+      chip.innerHTML = '<span class="dot"></span>' + (BRIDGE_STATE === 'no-body' ? '未连接' : '执行异常');
+    }
+  }
+
+  async function shell(cmd, timeoutMs){
+    return exec('sh ' + shq(MEMKEEP) + ' ' + cmd, timeoutMs);
+  }
+
   function openUrl(u){
     if(ksuApi()){ exec('am start -a android.intent.action.VIEW -d ' + shq(u) + ' >/dev/null 2>&1').catch(()=>{}); }
     else window.open(u, '_blank', 'noopener');
@@ -1224,14 +1286,10 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     $('#pSw').textContent = p.sw;
     $('#pCache').textContent = p.cache;
     $('#pWm').textContent = p.wm;
-    const r = $('#cacheRange');
-    r.value = p.cache;
-    $('#cacheVal').textContent = p.cache;
-    r.style.setProperty('--p', ((p.cache-64)/(512-64)*100)+'%');
-
-    // 选回档位时，VM 手动覆盖一并失效
+    // 选回档位时，VM 与缓存上限的手动覆盖一并失效
     vmCustomKeys = {};
     vmValues = Object.assign({}, VM_PRESET[key] || VM_PRESET.strong);
+    vmValues['max_cached_processes'] = String(p.cache);
     renderVmList();
     if(!silent) markDirty();
   }
@@ -1330,7 +1388,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     lz4kd:     '华为内核魔改算法，非通用'
   };
   const ALG_SHOW = ['zstd', 'lz4', 'lz4hc', 'lzo-rle', 'lzo', 'deflate'];
-  let algSupported = ['zstd', 'lz4', 'lz4hc', 'lzo-rle', 'deflate'];
+  let algSupported = [];
   let algCurrent = 'auto';
   let algActive = 'zstd';
 
@@ -1357,9 +1415,9 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   }
 
   async function loadAlgs(){
-    if(ksuApi()){
+    if(hasKsu()){
       try{
-        const out = await exec('sh ' + shq(MEMKEEP) + ' algs');
+        const out = await shell('algs');
         const m = {};
         String(out).trim().split(/\r?\n/).forEach(l => {
           const i = l.indexOf('=');
@@ -1368,6 +1426,9 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
         if(m.list) algSupported = m.list.split(/\s+/).filter(Boolean);
         if(m.current) algActive = m.current;
       }catch(e){}
+    }else if(DEMO){
+      algSupported = ['zstd', 'lz4', 'lz4hc', 'lzo-rle', 'deflate'];
+      algActive = 'zstd';
     }
     renderAlgs();
   }
@@ -1380,12 +1441,12 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     markDirty();
   });
 
-  loadAlgs();
-
-  /* ---------------- VM 内核参数 ---------------- */
+  /* ---------------- 高级设置 ---------------- */
   // 这些值不是独立可调的：tools.sh 按「保活强度」档位整组写入，
   // 所以这里做成只读明细 —— 告诉用户当前到底改了什么，而不是给一堆能拧坏的旋钮。
   const VM_DEFS = [
+    { k:'max_cached_processes', label:'缓存进程上限', min:64, max:512, step:32,
+      desc:'系统最多保留多少个后台缓存进程。值越大越耐多开，也越吃内存；写入 ActivityManager，保存即生效。' },
     { k:'swappiness', label:'换出倾向', min:0, max:200, step:5,
       desc:'越高越愿意把后台应用的匿名页压进 zram 而不是直接杀掉。100 = 积极压缩，显著改善多开留存。' },
     { k:'watermark_scale_factor', label:'内存水位系数', min:10, max:400, step:10,
@@ -1401,9 +1462,9 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   ];
 
   const VM_PRESET = {
-    balanced: { swappiness:'80',  watermark_scale_factor:'100', min_free_kbytes:'65536', 'page-cluster':'0', dirty_ratio:'15', compaction_proactiveness:'10' },
-    strong:   { swappiness:'100', watermark_scale_factor:'90',  min_free_kbytes:'65536', 'page-cluster':'0', dirty_ratio:'18', compaction_proactiveness:'15' },
-    max:      { swappiness:'120', watermark_scale_factor:'75',  min_free_kbytes:'65536', 'page-cluster':'0', dirty_ratio:'20', compaction_proactiveness:'20' }
+    balanced: { max_cached_processes:'128', swappiness:'80',  watermark_scale_factor:'100', min_free_kbytes:'65536', 'page-cluster':'0', dirty_ratio:'15', compaction_proactiveness:'10' },
+    strong:   { max_cached_processes:'256', swappiness:'100', watermark_scale_factor:'90',  min_free_kbytes:'65536', 'page-cluster':'0', dirty_ratio:'18', compaction_proactiveness:'15' },
+    max:      { max_cached_processes:'384', swappiness:'120', watermark_scale_factor:'75',  min_free_kbytes:'65536', 'page-cluster':'0', dirty_ratio:'20', compaction_proactiveness:'20' }
   };
 
   let vmValues = Object.assign({}, VM_PRESET.strong);
@@ -1498,7 +1559,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   // 手动改完之后如果数值又正好等于某个档位，就不该继续显示「自定义」。
   // 只比对能定义档位的 5 个键；min_free_kbytes 是按物理内存算出来的，各机不同，
   // 拿它参与比对会导致永远匹配不上。
-  const MATCH_KEYS = ['swappiness', 'watermark_scale_factor', 'page-cluster', 'dirty_ratio', 'compaction_proactiveness'];
+  const MATCH_KEYS = ['max_cached_processes', 'swappiness', 'watermark_scale_factor', 'page-cluster', 'dirty_ratio', 'compaction_proactiveness'];
 
   function matchPreset(){
     for(const k of ['balanced', 'strong', 'max']){
@@ -1524,9 +1585,11 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   }
 
   async function saveVm(def, v){
-    if(ksuApi()){
+    if(hasKsu()){
       try{
-        const out = await exec('sh ' + shq(MEMKEEP) + ' vmset ' + shq(def.k) + ' ' + v);
+        const out = def.k === 'max_cached_processes'
+          ? await shell('setcache ' + v)
+          : await shell('vmset ' + shq(def.k) + ' ' + v);
         if(!/^OK/.test(String(out).trim())){
           toast('保存被拒绝：' + String(out).trim());
           return;
@@ -1552,8 +1615,8 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   }
 
   async function resetVm(def){
-    if(ksuApi()){
-      try{ await exec('sh ' + shq(MEMKEEP) + ' vmreset'); }catch(e){}
+    if(hasKsu()){
+      try{ await shell('vmreset'); }catch(e){}
     }
     vmCustomKeys = {};
     const mode = $('#presetSeg button.on');
@@ -1566,7 +1629,11 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   }
 
   async function loadVms(){
-    if(!ksuApi()){ vmValues = Object.assign({}, VM_PRESET.strong); renderVmList(); return; }
+    if(!hasKsu()){
+      vmValues = DEMO ? Object.assign({}, VM_PRESET.strong) : {};
+      renderVmList();
+      return;
+    }
     try{
       const out = await exec('sh ' + shq(MEMKEEP) + ' vms');
       const m = {};
@@ -1585,22 +1652,6 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     renderVmList();
   });
 
-  $('#algChips').addEventListener('click', e=>{
-    const b = e.target.closest('button[data-alg]');
-    if(!b || b.disabled) return;
-    $$('#algChips .chip-s').forEach(x=>x.classList.toggle('on', x === b));
-    $('#algVal').textContent = b.dataset.alg === 'auto' ? 'auto · zstd' : b.dataset.alg;
-    markDirty();
-  });
-
-  const cacheRange = $('#cacheRange');
-  cacheRange.addEventListener('input', ()=>{
-    const v = +cacheRange.value;
-    $('#cacheVal').textContent = v;
-    $('#pCache').textContent = v;
-    cacheRange.style.setProperty('--p', ((v-64)/(512-64)*100)+'%');
-    markDirty();
-  });
 
   let dirtyCount = 0;
   function markDirty(){
@@ -1616,41 +1667,107 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     setTimeout(()=>{ $('#saveSub').textContent = 'VM 与保活立即生效 · ZRAM 需重启'; }, 2200);
   });
 
-  /* ---------------- logs ---------------- */
-  const LOGS = [
-    {t:'17:12:02', lv:'ok',   tag:'BOOT', msg:'service started'},
-    {t:'17:12:03', lv:'ok',   tag:'ZRAM', msg:'zram applied: size=8589934592, algorithm=zstd'},
-    {t:'17:12:03', lv:'ok',   tag:'VM',   msg:'vm tuning applied: mode=strong min_free_kbytes=46720'},
-    {t:'17:12:04', lv:'ok',   tag:'LMK',  msg:'lmk props applied'},
-    {t:'17:12:41', lv:'ok',   tag:'BG',   msg:'background retention applied: mode=strong'},
-    {t:'17:14:33', lv:'info', tag:'MANUAL', msg:'manual apply started'},
-    {t:'17:14:34', lv:'ok',   tag:'VM',   msg:'vm tuning applied: mode=strong min_free_kbytes=46720'},
-    {t:'17:14:34', lv:'ok',   tag:'BG',   msg:'background retention applied: mode=strong'},
-    {t:'17:15:10', lv:'warn', tag:'ZRAM', msg:'configured algorithm lzo-rle unsupported, fallback to zstd'},
-    {t:'17:16:02', lv:'ok',   tag:'MANUAL', msg:'manual apply finished; reboot to rebuild zram'}
-  ];
-  const lvClass = {ok:'ok', warn:'warn', err:'err', info:''};
-  function renderLogs(filter){
-    const box = $('#logList');
-    const list = LOGS.filter(l=>{
-      if(!filter || filter === 'all') return true;
-      if(filter === 'err') return l.lv === 'warn' || l.lv === 'err';
-      const map = {zram:'ZRAM', vm:'VM', bg:'BG'};
-      return l.tag === map[filter];
-    });
-    box.innerHTML = list.map(l=>
-      '<div class="log '+lvClass[l.lv]+'">'+
-        '<div class="rail"><i></i></div>'+
-        '<div class="body">'+
-          '<div class="meta"><span class="tm">'+l.t+'</span><span class="tag">'+l.tag+'</span></div>'+
-          '<div class="msg">'+l.msg.replace(/(size|algorithm|mode|min_free_kbytes)=([^\s,;]+)/g,'$1=<em>$2</em>')+'</div>'+
-        '</div>'+
-      '</div>'
-    ).join('') || '<div style="padding:26px 16px;text-align:center;color:var(--tx3);font-size:12.5px">该筛选下暂无记录</div>';
-    const foot = $('#logFoot');
-    if(foot) foot.textContent = '显示 ' + list.length + ' 条 · 日志上限 64 KB，超出后自动保留最近 100 行';
+  /* ---------------- 日志 ---------------- */
+  // 读 module 目录下的 memkeep.log，每行形如 "[2026-10-20 17:12:03] xxx"。
+  // 分级与标签从内容推断（模块本身只打纯文本，没有级别字段）。
+  let LOGS = [];
+  let logFilter = 'all';
+
+  function classifyLog(msg){
+    const m = String(msg);
+    if (/FAILED|ERROR|error:|cannot |refuse/i.test(m))          return { lv:'err',  tag:'ERR' };
+    if (/unsupported|timeout|fallback|skip|denied/i.test(m))    return { lv:'warn', tag:'WARN' };
+    if (/zram|swap/i.test(m))                                   return { lv:'ok',   tag:'ZRAM' };
+    if (/vm tuning|swappiness|watermark|min_free/i.test(m))      return { lv:'ok',   tag:'VM' };
+    if (/lmk/i.test(m))                                          return { lv:'ok',   tag:'LMK' };
+    if (/keep|retention|guardian/i.test(m))                      return { lv:'ok',   tag:'BG' };
+    if (/manual apply/i.test(m))                                 return { lv:'info', tag:'MANUAL' };
+    if (/service (started|finished)/i.test(m))                   return { lv:'info', tag:'BOOT' };
+    return { lv:'info', tag:'INFO' };
   }
-  renderLogs('all');
+
+  function parseLogs(text){
+    const out = [];
+    String(text || '').split(/\r?\n/).forEach(line => {
+      const t = line.trim();
+      if(!t) return;
+      const mm = /^\[([^\]]+)\]\s*(.*)$/.exec(t);
+      const stamp = mm ? mm[1] : '';
+      const msg = mm ? mm[2] : t;
+      const meta = classifyLog(msg);
+      out.push({ t: stamp.length >= 19 ? stamp.slice(11, 19) : (stamp || '—'), lv: meta.lv, tag: meta.tag, msg: msg });
+    });
+    return out;
+  }
+
+  const lvClass = { ok:'ok', warn:'warn', err:'err', info:'' };
+
+  function renderLogs(filter){
+    if(filter) logFilter = filter;
+    const box = $('#logList');
+    if(!box) return;
+
+    const list = LOGS.filter(l => {
+      if(logFilter === 'all') return true;
+      if(logFilter === 'err') return l.lv === 'warn' || l.lv === 'err';
+      const map = { zram:'ZRAM', vm:'VM', bg:'BG' };
+      return l.tag === map[logFilter];
+    }).slice().reverse();   // 新的在上
+
+    if(!list.length){
+      const why = BRIDGE_STATE === 'ok' || BRIDGE_STATE === 'demo'
+        ? '还没有日志。开机跑过一次 service.sh 之后才会写入。'
+        : '无法连接模块执行环境，读不到日志。';
+      box.innerHTML = '<div style="padding:26px 16px;text-align:center;color:var(--tx3);font-size:12.5px;line-height:1.6">' + esc(why) + '</div>';
+    }else{
+      box.innerHTML = list.map(l =>
+        '<div class="log ' + lvClass[l.lv] + '">' +
+          '<div class="rail"><i></i></div>' +
+          '<div class="body">' +
+            '<div class="meta"><span class="tm">' + esc(l.t) + '</span><span class="tag">' + esc(l.tag) + '</span></div>' +
+            '<div class="msg">' + esc(l.msg).replace(/(size|algorithm|mode|min_free_kbytes|am_cache)=([^\s,;]+)/g, '$1=<em>$2</em>') + '</div>' +
+          '</div>' +
+        '</div>'
+      ).join('');
+    }
+
+    const all = $('.logbar button[data-filter="all"] u');
+    if(all) all.textContent = LOGS.length;
+    const foot = $('#logFoot');
+    if(foot){
+      foot.textContent = list.length
+        ? ('显示 ' + list.length + ' 条 / 共 ' + LOGS.length + ' 条 · 日志上限 64 KB，超出后保留最近 100 行')
+        : '日志位于 /data/adb/modules/memkeep_plus/memkeep.log';
+    }
+  }
+
+  async function loadLogs(){
+    if(!hasKsu()){
+      LOGS = DEMO ? parseLogs(DEMO_LOG_TEXT) : [];
+      renderLogs('all');
+      return;
+    }
+    try{
+      const out = await shell('logs 200', 20000);
+      LOGS = parseLogs(out);
+    }catch(e){
+      LOGS = [];
+    }
+    renderLogs('all');
+  }
+
+  const DEMO_LOG_TEXT = [
+    '[2026-10-20 17:12:02] service started',
+    '[2026-10-20 17:12:03] zram applied: dev=/dev/block/zram0 size=8589934592, algorithm=zstd',
+    '[2026-10-20 17:12:03] vm tuning applied: mode=strong min_free_kbytes=65536',
+    '[2026-10-20 17:12:04] lmk props applied',
+    '[2026-10-20 17:12:41] background retention applied: mode=strong',
+    '[2026-10-20 17:20:10] configured algorithm lzo-rle unsupported, fallback to zstd',
+    '[2026-10-20 17:20:11] keep list applied',
+    '[2026-10-20 17:20:11] keep guardian started',
+    '[2026-10-20 17:21:30] service finished'
+  ].join('\n');
+
   $('.logbar').addEventListener('click', e=>{
     const b = e.target.closest('button[data-filter]');
     if(!b) return;
@@ -1791,12 +1908,14 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
       ? apps.map(a => aggRowHTML(a, max)).join('')
       : '<div style="padding:22px 16px;text-align:center;color:var(--tx3);font-size:12.5px">读取不到进程列表</div>';
     const c = $('#procCount');
-    if(c) c.textContent = PROCS.length + ' 个进程 · 按 RSS';
+    if(c) c.textContent = PROCS.length ? (PROCS.length + ' 个进程 · 按 RSS') : '—';
     // 计数按应用算，不按进程算 —— 微信 :push 不能再算一个应用
     const keptPkgs = new Set(PROCS.filter(p => p.kept).map(pkgOf));
     const k = $('#keptCount');
-    if(k) k.innerHTML = keptPkgs.size +
-      ' <em style="font-style:normal;color:var(--tx3);font-weight:400">个</em>';
+    if(k && PROCS.length){
+      k.innerHTML = keptPkgs.size +
+        ' <em style="font-style:normal;color:var(--tx3);font-weight:400">个</em>';
+    }
   }
 
   function filteredProcs(){
@@ -1857,9 +1976,18 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   }
 
   async function loadMem(){
-    if(!ksuApi()) return;
+    if(!hasKsu() && !DEMO) return;
+    if(DEMO){   // 画效果图用的完整演示数据，保持各项数值自洽
+      setHeroUsed(8.1 * 1048576, 11.7 * 1048576);
+      const a = $('#memAvail'); if(a) a.textContent = '3.6 GB';
+      const c = $('#memCached'); if(c) c.textContent = '3.4 GB';
+      setZram(3.0 * 1048576, 8.0 * 1048576, 9.4 * 1048576);
+      const chip = $('#zramAlgChip'); if(chip) chip.innerHTML = '<span class="dot"></span>zstd';
+      const dv = $('#devRam'); if(dv) dv.textContent = '11.7 GB';
+      return;
+    }
     try{
-      const out = await exec('sh ' + shq(MEMKEEP) + ' mem');
+      const out = await shell('mem');
       const m = {};
       String(out).trim().split(/\r?\n/).forEach(l => {
         const i = l.indexOf('=');
@@ -1882,19 +2010,19 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   }
 
   async function loadProcs(){
-    if(!ksuApi()){
-      PROCS = MOCK_PROCS.map(x => Object.assign({}, x));
+    if(!hasKsu()){
+      PROCS = DEMO ? MOCK_PROCS.map(x => Object.assign({}, x)) : [];
       return;
     }
     try{
-      const out = await exec('sh ' + shq(MEMKEEP) + ' procs 60');
+      const out = await shell('procs 60', 20000);
       const rows = String(out).trim().split(/\r?\n/).filter(Boolean).map(line => {
         const c = line.split('\t');
         return { pid: +c[0], uid: +c[1], adj: +c[2], rss: +c[3], name: c[4] || '?' };
       }).filter(r => r.pid > 0);
       let keptMap = {};
       try{
-        const kl = await exec('sh ' + shq(MEMKEEP) + ' keep list');
+        const kl = await shell('keep list');
         String(kl).trim().split(/\r?\n/).filter(Boolean).forEach(l => {
           const [k, t] = l.split(/\s+/);
           if(k) keptMap[k] = t;
@@ -2143,8 +2271,13 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   });
 
   /* ---------------- boot ---------------- */
-  loadProcs().then(renderAll).then(loadCaps);
-  loadMem();
+  (async ()=>{
+    await detectBridge();
+    updateStateChip();
+    await Promise.allSettled([ loadProcs().then(renderAll), loadMem(), loadCaps(), loadAlgs(), loadLogs() ]);
+    updateStateChip();
+    renderLogs(logFilter);
+  })();
   const qTab = params.get('tab');
   setTab(qTab || (location.hash ? location.hash.slice(1) : 'monitor'));
   if(params.get('panel') === '1'){

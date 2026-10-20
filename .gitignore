@@ -1,5 +1,6 @@
-# 构建产物（release/ 例外：它要入库，jsDelivr 从那里分发 zip）
+# 构建产物
 dist/
+release/
 
 # 原始 v2.1 压缩包与解压副本，仅作对照，不入库
 MemKeep++-v2.1-Web.zip

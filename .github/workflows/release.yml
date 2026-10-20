@@ -50,13 +50,13 @@ jobs:
       - name: Build zip
         run: |
           python3 scripts/build.py --update-json --repo "${{ github.repository }}"
-          ls -lh dist/ release/
+          ls -lh dist/
 
       - name: Publish to main (release/ + update.json)
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add release update.json
+          git add update.json
           if git diff --cached --quiet; then
             echo "无需提交"
           else
