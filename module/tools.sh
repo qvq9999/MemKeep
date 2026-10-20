@@ -19,6 +19,14 @@ load_config() {
   KEEP_MODE=strong
   LATE_REAPPLY=true
   KEEP_DAEMON=true
+  # VM 手动覆盖：VM_CUSTOM=true 时忽略上面的档位预设，直接用下面这组值
+  VM_CUSTOM=false
+  VM_SWAPPINESS=100
+  VM_WATERMARK=90
+  VM_MIN_FREE=0
+  VM_PAGE_CLUSTER=0
+  VM_DIRTY_RATIO=18
+  VM_COMPACT=15
 
   [ -f "$CONFIG" ] && . "$CONFIG"
 }
@@ -45,6 +53,17 @@ resetprop_safe() {
 
 mem_total_kb() {
   awk '/MemTotal/ {print $2; exit}' /proc/meminfo
+}
+
+# zram 的块设备节点在不同 ROM/内核上位置不一样：
+#   大多数设备是 /dev/block/zram0，少数只导出 /dev/zram0。
+# 直接写死会让 swapoff/mkswap/swapon 全部失败 —— 这是最典型的跨品牌兼容问题。
+zram_dev() {
+  for d in /dev/block/zram0 /dev/zram0 /dev/block/zram/zram0; do
+    [ -e "$d" ] && { echo "$d"; return 0; }
+  done
+  # 都找不到时按常见路径返回，让上层的错误日志有据可查
+  echo /dev/block/zram0
 }
 
 calc_zram_bytes() {
@@ -107,7 +126,7 @@ choose_zram_algorithm() {
 }
 
 apply_zram() {
-  local size_bytes alg backing_dev
+  local size_bytes alg backing_dev dev
 
   [ "$ZRAM_ENABLE" = "true" ] || {
     log_msg "zram disabled by config"
@@ -119,11 +138,12 @@ apply_zram() {
     return 1
   }
 
+  dev="$(zram_dev)"
   size_bytes="$(calc_zram_bytes "$(mem_total_kb)")"
   alg="$(choose_zram_algorithm)"
   backing_dev="$(cat /sys/block/zram0/backing_dev 2>/dev/null)"
 
-  swapoff /dev/block/zram0 >/dev/null 2>&1
+  swapoff "$dev" >/dev/null 2>&1
   write_file 1 /sys/block/zram0/reset
 
   [ -n "$alg" ] && write_file "$alg" /sys/block/zram0/comp_algorithm
@@ -133,11 +153,11 @@ apply_zram() {
   fi
 
   write_file "$size_bytes" /sys/block/zram0/disksize
-  mkswap /dev/block/zram0 >/dev/null 2>&1
-  if swapon /dev/block/zram0 >/dev/null 2>&1; then
-    log_msg "zram applied: size=${size_bytes}, algorithm=${alg:-kernel-default}"
+  mkswap "$dev" >/dev/null 2>&1
+  if swapon "$dev" >/dev/null 2>&1; then
+    log_msg "zram applied: dev=$dev size=${size_bytes}, algorithm=${alg:-kernel-default}"
   else
-    log_msg "zram swapon FAILED: size=${size_bytes}, algorithm=${alg:-kernel-default}"
+    log_msg "zram swapon FAILED: dev=$dev size=${size_bytes}, algorithm=${alg:-kernel-default}"
     return 1
   fi
 }
@@ -150,41 +170,55 @@ apply_vm_tuning() {
   [ "$min_free" -lt 65536 ] && min_free=65536
   [ "$min_free" -gt 131072 ] && min_free=131072
 
-  case "$KEEP_MODE" in
-    balanced)
-      write_file 80 /proc/sys/vm/swappiness
-      write_file 10 /proc/sys/vm/compaction_proactiveness
-      write_file 0 /proc/sys/vm/page-cluster
-      write_file "$min_free" /proc/sys/vm/min_free_kbytes
-      write_file 100 /proc/sys/vm/watermark_scale_factor
-      write_file 5 /proc/sys/vm/dirty_background_ratio
-      write_file 15 /proc/sys/vm/dirty_ratio
-      ;;
-    max)
-      write_file 120 /proc/sys/vm/swappiness
-      write_file 20 /proc/sys/vm/compaction_proactiveness
-      write_file 0 /proc/sys/vm/page-cluster
-      write_file "$min_free" /proc/sys/vm/min_free_kbytes
-      write_file 75 /proc/sys/vm/watermark_scale_factor
-      write_file 5 /proc/sys/vm/dirty_background_ratio
-      write_file 20 /proc/sys/vm/dirty_ratio
-      ;;
-    *)
-      write_file 100 /proc/sys/vm/swappiness
-      write_file 15 /proc/sys/vm/compaction_proactiveness
-      write_file 0 /proc/sys/vm/page-cluster
-      write_file "$min_free" /proc/sys/vm/min_free_kbytes
-      write_file 90 /proc/sys/vm/watermark_scale_factor
-      write_file 5 /proc/sys/vm/dirty_background_ratio
-      write_file 18 /proc/sys/vm/dirty_ratio
-      ;;
-  esac
+  if [ "$VM_CUSTOM" = "true" ]; then
+    # 手动覆盖：用户在 WebUI 里逐项调过，优先于档位预设。
+    # min_free_kbytes 没手动改过（0）时仍用自动算出来的值。
+    local mf="${VM_MIN_FREE:-0}"
+    [ "$mf" -gt 0 ] 2>/dev/null || mf="$min_free"
+    write_file "${VM_SWAPPINESS:-100}" /proc/sys/vm/swappiness
+    write_file "${VM_COMPACT:-15}" /proc/sys/vm/compaction_proactiveness
+    write_file "${VM_PAGE_CLUSTER:-0}" /proc/sys/vm/page-cluster
+    write_file "$mf" /proc/sys/vm/min_free_kbytes
+    write_file "${VM_WATERMARK:-90}" /proc/sys/vm/watermark_scale_factor
+    write_file 5 /proc/sys/vm/dirty_background_ratio
+    write_file "${VM_DIRTY_RATIO:-18}" /proc/sys/vm/dirty_ratio
+    log_msg "vm tuning applied: mode=custom swappiness=$VM_SWAPPINESS watermark=$VM_WATERMARK min_free=$mf"
+  else
+    case "$KEEP_MODE" in
+      balanced)
+        write_file 80 /proc/sys/vm/swappiness
+        write_file 10 /proc/sys/vm/compaction_proactiveness
+        write_file 0 /proc/sys/vm/page-cluster
+        write_file "$min_free" /proc/sys/vm/min_free_kbytes
+        write_file 100 /proc/sys/vm/watermark_scale_factor
+        write_file 5 /proc/sys/vm/dirty_background_ratio
+        write_file 15 /proc/sys/vm/dirty_ratio
+        ;;
+      max)
+        write_file 120 /proc/sys/vm/swappiness
+        write_file 20 /proc/sys/vm/compaction_proactiveness
+        write_file 0 /proc/sys/vm/page-cluster
+        write_file "$min_free" /proc/sys/vm/min_free_kbytes
+        write_file 75 /proc/sys/vm/watermark_scale_factor
+        write_file 5 /proc/sys/vm/dirty_background_ratio
+        write_file 20 /proc/sys/vm/dirty_ratio
+        ;;
+      *)
+        write_file 100 /proc/sys/vm/swappiness
+        write_file 15 /proc/sys/vm/compaction_proactiveness
+        write_file 0 /proc/sys/vm/page-cluster
+        write_file "$min_free" /proc/sys/vm/min_free_kbytes
+        write_file 90 /proc/sys/vm/watermark_scale_factor
+        write_file 5 /proc/sys/vm/dirty_background_ratio
+        write_file 18 /proc/sys/vm/dirty_ratio
+        ;;
+    esac
+    log_msg "vm tuning applied: mode=$KEEP_MODE min_free_kbytes=$min_free"
+  fi
 
   write_file 1 /proc/sys/vm/watermark_boost_factor
   write_file 1 /proc/sys/vm/overcommit_memory
   write_file 3600 /proc/sys/vm/dirtytime_expire_seconds
-
-  log_msg "vm tuning applied: mode=$KEEP_MODE min_free_kbytes=$min_free"
 }
 
 apply_background_retention() {

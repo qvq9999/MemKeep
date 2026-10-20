@@ -1,6 +1,6 @@
 {
-  "version": "v2.1.0",
-  "versionCode": 20100,
-  "zipUrl": "https://cdn.jsdelivr.net/gh/qvq9999/MemKeep@main/release/MemKeepPlus-v2.1.0.zip",
+  "version": "v3.0",
+  "versionCode": 30000,
+  "zipUrl": "https://cdn.jsdelivr.net/gh/qvq9999/MemKeep@main/release/MemKeepPlus-v3.0.zip",
   "changelog": "https://cdn.jsdelivr.net/gh/qvq9999/MemKeep@main/CHANGELOG.md"
 }

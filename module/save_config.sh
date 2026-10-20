@@ -25,7 +25,22 @@ bool_value() {
 
 zram_size_value() {
   case "$1" in
-    auto|8G|12G|16G|50%|75%|100%|125%) return 0 ;;
+    auto) return 0 ;;
+    # 固定容量：1–32 之间的整数 GB（WebUI 的 8/12/16 预设与「自定义」都走这里）
+    *G|*g)
+      n="${1%G}"
+      n="${n%g}"
+      case "$n" in ''|*[!0-9]*) return 1 ;; esac
+      [ "$n" -ge 1 ] && [ "$n" -le 32 ] && return 0
+      return 1
+      ;;
+    # 兼容老配置里的百分比写法
+    *%)
+      n="${1%\%}"
+      case "$n" in ''|*[!0-9]*) return 1 ;; esac
+      [ "$n" -ge 10 ] && [ "$n" -le 200 ] && return 0
+      return 1
+      ;;
     *) return 1 ;;
   esac
 }

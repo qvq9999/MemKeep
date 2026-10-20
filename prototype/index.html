@@ -58,6 +58,9 @@ html[data-theme="light"]{
 
 /* ============ base ============ */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+/* [hidden] 的 UA 规则只有 display:none，会被 .custom-box{display:flex} 这类
+   类选择器盖掉（特异性更高）。这里显式提权，避免"该隐藏却显示"的鬼问题。 */
+[hidden]{display:none !important}
 /* 始终为垂直滚动条预留宽度：切换长度不同的页面时视口宽度不变，固定底栏不会左右跳动。
    不支持 scrollbar-gutter 的旧内核退化为 overflow-y:scroll（效果相同）。 */
 html{-webkit-text-size-adjust:100%;scrollbar-gutter:stable}
@@ -162,13 +165,24 @@ html[data-theme="light"] .ring .arc{filter:drop-shadow(0 0 7px rgba(15,159,104,.
 .hero-v em{font-size:11.5px;font-style:normal;color:var(--tx3);margin-left:3px;font-variant-numeric:tabular-nums}
 .spark{height:34px;margin-top:6px;margin-right:-2px}
 .spark svg{width:100%;height:34px;display:block;overflow:visible}
-.hero-stats{display:grid;grid-template-columns:repeat(3,1fr);margin-top:14px;border-top:1px solid var(--line)}
+.hero-stats{display:grid;grid-template-columns:repeat(2,1fr);margin-top:14px;border-top:1px solid var(--line)}
 .hero-stats div{padding:11px 0 13px;text-align:center;position:relative}
 .hero-stats div + div::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:1px;background:var(--line)}
 .hero-stats i{display:block;font-size:11px;color:var(--tx3);font-style:normal;letter-spacing:.2px}
 .hero-stats b{display:block;font-size:14.5px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
 
-/* ============ zram card ============ */
+/* ============ zram 合并块 ============ */
+.zram-blk{border-top:1px solid var(--line);padding:12px 0 14px}
+.zrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.zt{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;letter-spacing:.5px;color:var(--tx2)}
+.zchip{height:20px;font-size:10px;padding:0 7px;gap:4px}
+.zchip .dot{width:4px;height:4px}
+.zpct{font-size:12px;font-weight:600;color:var(--tx2)}
+.zram-blk .bar{margin:9px 0 7px}
+.zmeta{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--tx3);gap:8px}
+.zmeta b{font-weight:600;color:var(--tx2);font-variant-numeric:tabular-nums}
+
+/* ============ zram card（旧，保留给调节页复用） ============ */
 .zram{padding:15px 16px 4px}
 .zrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .zrow .t{font-size:13.5px;font-weight:600}
@@ -204,6 +218,20 @@ html[data-theme="light"] .ring .arc{filter:drop-shadow(0 0 7px rgba(15,159,104,.
   border-top:1px solid var(--line);font-size:12.5px;font-weight:550;color:var(--ac);
 }
 .more-btn svg{width:12px;height:12px;stroke:currentColor;stroke-width:2.4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+/* ============ 链接行（GitHub 等） ============ */
+.link-row{display:flex;align-items:center;gap:11px;width:100%;padding:13px 16px;text-align:left}
+.link-row:active{background:var(--s2)}
+.link-row .lk-ic{
+  width:34px;height:34px;border-radius:11px;flex:none;display:grid;place-items:center;
+  background:var(--s2);border:1px solid var(--line);color:var(--tx2);
+}
+.link-row .lk-ic svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.link-row .txt{flex:1;min-width:0}
+.link-row .txt strong{display:block;font-size:13px;font-weight:550;letter-spacing:-.1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.link-row .txt small{display:block;font-size:11px;color:var(--tx3);margin-top:2px}
+.link-row .arw{width:15px;height:15px;flex:none;stroke:var(--tx3);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 
 /* ============ 进程行 ============ */
 .plist{padding:2px 0 4px}
@@ -347,7 +375,50 @@ html[data-theme="light"] .seg.accent button.on{background:var(--ac);color:#fff;b
 /* chips */
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chips.grid{display:grid;grid-template-columns:repeat(4,1fr)}
-.chips.grid .chip-s{justify-content:center;padding:0 2px}
+.chips.grid4{display:grid;grid-template-columns:repeat(4,1fr)}
+.chips.grid .chip-s,.chips.grid4 .chip-s{justify-content:center;padding:0 2px}
+
+/* ============ VM 参数面板 ============ */
+.vm-toggle{width:100%;text-align:left;position:relative}
+.vm-toggle > svg{
+  width:16px;height:16px;flex:none;stroke:var(--tx3);stroke-width:2;fill:none;
+  stroke-linecap:round;stroke-linejoin:round;transition:transform .22s;
+}
+.vm-toggle.open > svg{transform:rotate(90deg)}
+.vm-toggle .val{font-size:11.5px;color:var(--tx3);font-weight:400}
+.vm-list{border-top:1px solid var(--line)}
+.vm-item{display:block;width:100%;text-align:left;padding:11px 16px}
+.vm-item:active{background:var(--s2)}
+.vm-item + .vm-item{border-top:1px solid var(--line)}
+.vm-item .h{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.vm-item .h b{
+  font-size:12px;font-weight:550;color:var(--tx2);
+  font-family:ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:-.2px;
+}
+.vm-item .h span{font-size:12.5px;font-weight:600;color:var(--ac);font-variant-numeric:tabular-nums;flex:none;display:flex;align-items:center;gap:5px}
+.vm-item .h .ov{
+  font-style:normal;font-size:9.5px;font-weight:600;letter-spacing:.3px;
+  padding:1px 5px;border-radius:5px;background:var(--ac-soft);color:var(--ac);
+}
+.vm-item p{font-size:11px;color:var(--tx3);margin-top:3px;line-height:1.55}
+.vm-foot{padding:0 16px 12px;font-size:10.5px;color:var(--tx3);line-height:1.5}
+
+/* 自定义容量 */
+.custom-box{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-top:9px;padding:5px;border-radius:14px;background:var(--s2);border:1px solid var(--line);
+}
+.custom-box .step{
+  width:40px;height:36px;border-radius:10px;background:var(--s1);border:1px solid var(--line);
+  font-size:19px;font-weight:500;color:var(--tx);display:grid;place-items:center;line-height:1;
+}
+.custom-box .step:active{background:var(--s3)}
+.custom-box .step:disabled{opacity:.35}
+.custom-box .step-val{flex:1;text-align:center;display:flex;align-items:baseline;justify-content:center;gap:3px}
+.custom-box .step-val b{font-size:21px;font-weight:650;letter-spacing:-.8px;font-variant-numeric:tabular-nums}
+.custom-box .step-val span{font-size:11.5px;color:var(--tx3)}
+.range-hint{font-size:10.5px;color:var(--tx3);margin-top:7px;line-height:1.5}
+.range-hint.warn{color:var(--warn)}
 .chips.scroll{flex-wrap:nowrap;overflow-x:auto;margin:0 -16px;padding:0 16px 2px;scrollbar-width:none}
 .chips.scroll::-webkit-scrollbar{display:none}
 .chip-s{
@@ -484,6 +555,10 @@ html[data-theme="light"] .savebar button{color:#fff}
 .sheet h4{font-size:16.5px;font-weight:650;letter-spacing:-.3px}
 .sheet p{font-size:12.5px;color:var(--tx2);margin-top:8px;line-height:1.6}
 .sheet p.mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;color:var(--tx3);word-break:break-all}
+.sheet code{
+  font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;
+  background:var(--s2);border:1px solid var(--line);border-radius:5px;padding:1px 4px;color:var(--tx2);
+}
 .sheet .sheetlog{
   margin-top:10px;padding:11px 12px;border-radius:12px;background:var(--s2);border:1px solid var(--line);
   font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;line-height:1.6;color:var(--tx2);
@@ -569,26 +644,21 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
           </div>
         </div>
         <div class="hero-stats">
-          <div><i>可用</i><b class="num">4.8 GB</b></div>
-          <div><i>缓存</i><b class="num">3.6 GB</b></div>
-          <div><i>ZRAM 已压</i><b class="num" id="zramUsedMini">3.0 GB</b></div>
+          <div><i>可用</i><b class="num" id="memAvail">4.8 GB</b></div>
+          <div><i>缓存</i><b class="num" id="memCached">3.6 GB</b></div>
         </div>
-      </div>
 
-      <div class="card zram">
-        <div class="zrow">
-          <div class="t">ZRAM 压缩内存</div>
-          <span class="chip ok" style="height:24px;font-size:11px"><span class="dot"></span>zstd</span>
-        </div>
-        <div class="bar"><i id="zramBar"></i></div>
-        <div class="bar-lb">
-          <span>已用 <b class="num">3.0 GB</b> / 8.0 GB</span>
-          <span class="num">38%</span>
-        </div>
-        <div class="zstats">
-          <div><i>压缩比</i><b class="num">3.12<u>×</u></b></div>
-          <div><i>原始占用</i><b class="num">9.4<u>GB</u></b></div>
-          <div><i>净节省</i><b class="num" style="color:var(--ac)">6.4<u>GB</u></b></div>
+        <div class="zram-blk">
+          <div class="zrow">
+            <div class="zt">ZRAM<span class="chip ok zchip"><span class="dot"></span>zstd</span></div>
+            <span class="zpct num" id="zramPct">38%</span>
+          </div>
+          <div class="bar"><i id="zramBar" style="width:38%"></i></div>
+          <div class="zmeta">
+            <span><b class="num" id="zramUse">3.0 / 8.0 GB</b></span>
+            <span>压缩比 <b class="num" id="zramRatio">3.12×</b></span>
+            <span>净省 <b class="num" style="color:var(--ac)" id="zramSaved">6.4 GB</b></span>
+          </div>
         </div>
       </div>
 
@@ -614,21 +684,6 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
         <div class="ret-line"><span>缓存进程上限</span><b class="num">256</b></div>
       </div>
 
-      <div class="quick">
-        <button data-action="apply">
-          <span class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 4.5 13.5H11l-1 8.5L19.5 10H13Z"/></svg></span>
-          <span>立即应用<small>无需重启</small></span>
-        </button>
-        <button data-action="dropcache">
-          <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg></span>
-          <span>释放页缓存<small>回收空闲 page cache</small></span>
-        </button>
-        <button class="wide" data-action="rezram">
-          <span class="ic warn"><svg viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 2.4 17.5A2 2 0 0 0 4.1 20.5h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></span>
-          <span>重建 ZRAM 分区<small>短暂中断 swap，需确认</small></span>
-        </button>
-      </div>
-
       <div class="insight">
         <span class="ic"><svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V16h8v-1.3A7 7 0 0 0 12 2Z"/></svg></span>
         <div>
@@ -648,6 +703,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
           <button data-preset="balanced">均衡</button>
           <button data-preset="strong" class="on">增强</button>
           <button data-preset="max">极限</button>
+          <button data-preset="custom" hidden>自定义</button>
         </div>
         <div class="desc" id="presetDesc">较强保活：把后台页优先压进 zram 而不是直接回收，日常多开推荐。</div>
         <div class="pstats">
@@ -667,27 +723,25 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
           <div class="txt" style="display:flex;align-items:center;justify-content:space-between">
             <strong>容量</strong><span class="val" id="zramSizeVal">auto · 8.0 GB</span>
           </div>
-          <div class="chips grid" id="sizeChips">
-            <button class="chip-s on" data-size="auto">auto</button>
+          <div class="chips grid4" id="sizeChips">
             <button class="chip-s" data-size="8G">8 GB</button>
             <button class="chip-s" data-size="12G">12 GB</button>
             <button class="chip-s" data-size="16G">16 GB</button>
-            <button class="chip-s" data-size="50%">50%</button>
-            <button class="chip-s" data-size="75%">75%</button>
-            <button class="chip-s" data-size="100%">100%</button>
-            <button class="chip-s" data-size="125%">125%</button>
+            <button class="chip-s" data-size="custom">自定义</button>
           </div>
+          <div class="custom-box" id="customBox" hidden>
+            <button class="step" data-step="-1" aria-label="减少">−</button>
+            <div class="step-val"><b id="customVal">12</b><span>GB</span></div>
+            <button class="step" data-step="1" aria-label="增加">+</button>
+          </div>
+          <div class="range-hint" id="sizeHint">范围 2–23 GB · 超过物理内存只作上限，不会立即占用</div>
         </div>
         <div class="row block">
           <div class="txt" style="display:flex;align-items:center;justify-content:space-between">
             <strong>压缩算法</strong><span class="val" id="algVal">auto · zstd</span>
           </div>
-          <div class="chips" id="algChips">
-            <button class="chip-s on" data-alg="auto">auto</button>
-            <button class="chip-s" data-alg="zstd">zstd</button>
-            <button class="chip-s" data-alg="lz4">lz4</button>
-            <button class="chip-s" data-alg="lzo-rle" disabled>lzo-rle</button>
-          </div>
+          <div class="chips" id="algChips"></div>
+          <div class="range-hint" id="algHint">读取本机内核支持的算法…</div>
         </div>
         <div class="row">
           <div class="txt"><strong>保留 backing device</strong><small>原 zram 存在后端设备时予以保留</small></div>
@@ -712,12 +766,14 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
         </div>
       </div>
 
-      <div class="sect"><h2>高级</h2></div>
+      <div class="sect"><h2>高级</h2><span class="more">跟随保活强度</span></div>
       <div class="card grp">
-        <div class="row">
+        <button class="row vm-toggle"> 
           <div class="txt"><strong>VM 内核参数</strong><small>swappiness · watermark · min_free_kbytes 等 6 项</small></div>
-          <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--tx3);stroke-width:2;fill:none;stroke-linecap:round"><path d="m9 6 6 6-6 6"/></svg>
-        </div>
+          <span class="val" id="vmChev">查看</span>
+          <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
+        </button>
+        <div class="vm-list" id="vmList" hidden></div>
       </div>
     </section>
 
@@ -747,7 +803,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     <!-- ================= 关于 ================= -->
     <section class="view" id="view-about">
       <div class="card about-hd">
-        <div class="v"><h3 class="num">v2.2.0</h3><span class="chip ok" style="height:23px;font-size:11px">已是最新</span></div>
+        <div class="v"><h3 class="num">v3.0</h3><span class="chip ok" style="height:23px;font-size:11px">已是最新</span></div>
         <p>内核级内存管理模块：重建 ZRAM 压缩交换区、调整 VM 水位与 LMKD 策略，让后台应用留得更久。</p>
         <button class="about-link" data-action="update"><span id="updLabel">检查更新</span>
           <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
@@ -756,20 +812,21 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
 
       <div class="sect"><h2>设备</h2></div>
       <div class="card">
-        <div class="kv"><span>机型</span><b>realme GT7 Pro</b></div>
-        <div class="kv"><span>物理内存</span><b class="num">11.7 GB</b></div>
-        <div class="kv"><span>系统</span><b>Android 15 · SDK 35</b></div>
-        <div class="kv"><span>内核</span><b class="num">6.6.56-android15</b></div>
-        <div class="kv"><span>Root 方案</span><b>KernelSU 1.0.5</b></div>
+        <div class="kv"><span>机型</span><b id="devModel">读取中…</b></div>
+        <div class="kv"><span>物理内存</span><b class="num" id="devRam">—</b></div>
+        <div class="kv"><span>系统</span><b id="devOs">—</b></div>
+        <div class="kv"><span>内核</span><b class="num" id="devKernel">—</b></div>
+        <div class="kv"><span>Root 方案</span><b id="devRoot">—</b></div>
       </div>
 
       <div class="sect"><h2>能力检测</h2><span class="more">按本机内核实测</span></div>
-      <div class="card">
-        <div class="cap"><span class="n">zram0 设备</span><span class="s y">可用</span></div>
-        <div class="cap"><span class="n">zstd / lz4 算法</span><span class="s y">可用</span></div>
-        <div class="cap"><span class="n">多级重压缩 (recompress)</span><span class="s y">可用</span></div>
-        <div class="cap"><span class="n">writeback 回写</span><span class="s n">不支持</span></div>
-        <div class="cap"><span class="n">MGLRU 多代 LRU</span><span class="s w">部分</span></div>
+      <div class="card" id="capList">
+        <div class="cap"><span class="n">zram0 设备</span><span class="s n" data-cap="zram">检测中</span></div>
+        <div class="cap"><span class="n">可用压缩算法</span><span class="s n" data-cap="alg">检测中</span></div>
+        <div class="cap"><span class="n">多级重压缩 (recompress)</span><span class="s n" data-cap="recompress">检测中</span></div>
+        <div class="cap"><span class="n">writeback 回写</span><span class="s n" data-cap="writeback">检测中</span></div>
+        <div class="cap"><span class="n">MGLRU 多代 LRU</span><span class="s n" data-cap="mglru">检测中</span></div>
+        <div class="cap"><span class="n">主动内存规整</span><span class="s n" data-cap="compact">检测中</span></div>
       </div>
 
       <div class="sect"><h2>设置</h2></div>
@@ -784,6 +841,20 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
             <button data-theme-val="light">浅色</button>
           </div>
         </div>
+      </div>
+
+      <div class="sect"><h2>开源</h2><span class="more">源码与更新日志</span></div>
+      <div class="card">
+        <button class="link-row" data-action="github">
+          <span class="lk-ic">
+            <svg viewBox="0 0 24 24"><path d="M9 19c-4 1.5-4-2.5-6-3m12 4v-3.6c0-.9.1-1.3-.5-1.9 2.8-.3 4.5-1.5 4.5-5a4 4 0 0 0-1.1-2.8 3.7 3.7 0 0 0-.1-2.8s-1.2-.4-3.6 1.4a12 12 0 0 0-6.2 0C4.6 3.1 3.4 3.5 3.4 3.5a3.7 3.7 0 0 0-.1 2.8A4 4 0 0 0 2.2 9.1c0 3.5 1.7 4.7 4.5 5-.6.6-.6 1.2-.5 1.9V20"/></svg>
+          </span>
+          <span class="txt">
+            <strong>github.com/qvq9999/MemKeep</strong>
+            <small>查看源码、更新日志，或提 issue 反馈问题</small>
+          </span>
+          <svg class="arw" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
+        </button>
       </div>
 
       <div class="sect"><h2>危险操作</h2></div>
@@ -897,9 +968,59 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     toastT = setTimeout(()=>toastEl.classList.remove('on'), 1900);
   }
 
+  /* ---------------- 设备与能力 ---------------- */
+  function setCap(key, ok, text){
+    const el = document.querySelector('[data-cap="' + key + '"]');
+    if(!el) return;
+    el.className = 's ' + (ok === true ? 'y' : ok === false ? 'n' : 'w');
+    el.textContent = text;
+  }
+
+  async function loadCaps(){
+    if(!ksuApi()){
+      // 演示数据：按一台现代旗舰内核填写，仅用于原型展示
+      const m = { model:'realme GT7 Pro', android:'15', sdk:'35', kernel:'6.6.56-android15',
+                  root:'KernelSU', zram:'1', recompress:'1', writeback:'0', mglru:'1', compact:'1' };
+      fillCaps(m);
+      return;
+    }
+    try{
+      const out = await exec('sh ' + shq(MEMKEEP) + ' caps');
+      const m = {};
+      String(out).trim().split(/\r?\n/).forEach(l => {
+        const i = l.indexOf('=');
+        if(i > 0) m[l.slice(0, i)] = l.slice(i + 1).trim();
+      });
+      fillCaps(m);
+    }catch(e){}
+  }
+
+  function fillCaps(m){
+    const set = (id, v)=>{ const el = $('#' + id); if(el) el.textContent = v; };
+    set('devModel', m.model || '未知');
+    set('devOs', (m.android ? 'Android ' + m.android : '未知') + (m.sdk ? ' · SDK ' + m.sdk : ''));
+    set('devKernel', m.kernel || '未知');
+    set('devRoot', m.root || '未知');
+    const ram = $('#devRam');
+    if(ram && (!ram.textContent || ram.textContent === '—')) ram.textContent = RAM_GB.toFixed(1) + ' GB';
+
+    const yes = v => v === '1';
+    setCap('zram', yes(m.zram), yes(m.zram) ? '可用' : '缺失');
+    setCap('recompress', yes(m.recompress), yes(m.recompress) ? '可用' : '不支持');
+    setCap('writeback', yes(m.writeback), yes(m.writeback) ? '可用' : '不支持');
+    setCap('mglru', yes(m.mglru) ? true : null, yes(m.mglru) ? '可用' : '不支持');
+    setCap('compact', yes(m.compact), yes(m.compact) ? '可用' : '不支持');
+    const algEl = document.querySelector('[data-cap="alg"]');
+    if(algEl){
+      const n = algSupported.length;
+      algEl.className = 's ' + (n ? 'y' : 'n');
+      algEl.textContent = n ? (n + ' 种 · ' + algSupported.slice(0, 3).join('/')) : '无';
+    }
+  }
+
   /* ---------------- 在线更新 ---------------- */
   // 版本源：与 module.prop 的 versionCode 同编码（MAJOR*10000 + MINOR*100 + PATCH）
-  const APP = {version:'v2.2.0', code:20200};
+  const APP = {version:'v3.0', code:30000};
   const UPD_REPO = 'qvq9999/MemKeep';
   const UPD_SOURCES = [
     'https://cdn.jsdelivr.net/gh/' + UPD_REPO + '@main/update.json',
@@ -911,32 +1032,43 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   const shq = v => "'" + String(v).replace(/'/g, "'\\''") + "'";
 
   function ksuApi(){
+    // KernelSU / KernelSU-Next / SukiSU / APatch 的管理器都注入 ksu 或 KSU
     if(window.ksu && typeof window.ksu.exec === 'function') return window.ksu;
     if(window.KSU && typeof window.KSU.exec === 'function') return window.KSU;
+    // MMRL / WebUI X 注入 $ackg；Magisk 用户需要装 KsuWebUI Standalone 或 MMRL 才有这层桥
+    if(window.$ackg && typeof window.$ackg.exec === 'function') return window.$ackg;
     return null;
   }
-  // 兼容 ksu.exec 的三种桥接签名（callback / Promise / 同步返回）
+  // 兼容三类返回：callback(errno,out,err) / Promise<{errno,stdout,stderr}> / Promise<string>
   function exec(cmd){
     const api = ksuApi();
-    if(!api) return Promise.reject(new Error('no ksu bridge'));
+    if(!api) return Promise.reject(new Error('no webui bridge'));
     return new Promise((res, rej)=>{
       let done = false;
-      const finish = (errno, out, err)=>{
+      const settle = (v)=>{
         if(done) return; done = true;
+        if(v && typeof v === 'object'){
+          const code = v.errno != null ? v.errno : (v.code != null ? v.code : 0);
+          if(typeof code === 'number' && code !== 0) rej(new Error(v.stderr || v.stdout || ('exit ' + code)));
+          else res(v.stdout != null ? v.stdout : (v.result || ''));
+        }else res(String(v == null ? '' : v));
+      };
+      const finish = (errno, out, err)=>{
+        if(done) return;
         if(typeof errno === 'number'){
+          done = true;
           if(errno !== 0) rej(new Error(err || out || ('exit ' + errno)));
           else res(out || '');
-        } else res(String(errno == null ? '' : errno));
+        }else settle(errno);
       };
       try{
-        if(api.exec.length >= 3) api.exec(cmd, {}, finish);
-        else if(api.exec.length === 2) api.exec(cmd, finish);
-        else {
-          const r = api.exec(cmd);
-          if(r && typeof r.then === 'function') r.then(res, rej);
-          else res(String(r == null ? '' : r));
-        }
-      }catch(e){ rej(e); }
+        let r;
+        if(api.exec.length >= 3) r = api.exec(cmd, {}, finish);
+        else if(api.exec.length === 2) r = api.exec(cmd, finish);
+        else r = api.exec(cmd);
+        if(r && typeof r.then === 'function'){ r.then(settle, e=>{ if(!done){done=true; rej(e);} }); }
+        else if(r !== undefined) settle(r);
+      }catch(e){ if(!done){ done = true; rej(e); } }
     });
   }
   // fetch 优先；WebView 若被 CORS/证书拦住，退到 root shell 的 curl / wget
@@ -1069,8 +1201,20 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
 
   /* ---------------- 保活强度 ---------------- */
   function applyPreset(key, silent){
+    const seg = $('#presetSeg');
+    const customBtn = seg ? seg.querySelector('[data-preset="custom"]') : null;
+
+    if(key === 'custom'){
+      if(customBtn) customBtn.hidden = false;
+      $$('#presetSeg button').forEach(x=>x.classList.toggle('on', x.dataset.preset === 'custom'));
+      const d = $('#presetDesc');
+      if(d) d.textContent = '已手动微调 VM 参数：这些值不再跟随档位，点回均衡/增强/极限可恢复。';
+      return;
+    }
+
     const p = PRESETS[key];
     if(!p) return;
+    if(customBtn) customBtn.hidden = true;
     $$('#presetSeg button').forEach(x=>x.classList.toggle('on', x.dataset.preset === key));
     $('#presetDesc').textContent = p.desc;
     $('#pSw').textContent = p.sw;
@@ -1080,6 +1224,11 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     r.value = p.cache;
     $('#cacheVal').textContent = p.cache;
     r.style.setProperty('--p', ((p.cache-64)/(512-64)*100)+'%');
+
+    // 选回档位时，VM 手动覆盖一并失效
+    vmCustomKeys = {};
+    vmValues = Object.assign({}, VM_PRESET[key] || VM_PRESET.strong);
+    renderVmList();
     if(!silent) markDirty();
   }
   $('#presetSeg').addEventListener('click', e=>{
@@ -1088,13 +1237,348 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     applyPreset(b.dataset.preset);
   });
 
+  /* ---------------- ZRAM 容量 ---------------- */
+  // 安全范围按物理内存推：下限 2 GB（再小 zram 没意义），上限物理内存 ×2 且不超过 32 GB。
+  // zram 的 disksize 只是「上限」，不会立即占用内存，所以略超物理内存是允许的；
+  // 但设太大容易把正在用的页压进慢速交换，反而卡，因此超过物理内存时给黄色提示。
+  const RAM_GB = 11.7;
+  const SIZE_MIN = 2;
+  const SIZE_MAX = Math.min(32, Math.floor(RAM_GB * 2));
+  let zramSize = { mode: 'auto', custom: 12 };
+
+  function sizeLabel(){
+    if(zramSize.mode === 'custom') return zramSize.custom + ' GB';
+    if(zramSize.mode === 'auto') return 'auto · 8.0 GB';
+    return zramSize.mode.replace('G', ' GB');
+  }
+
+  function renderZramSize(){
+    $$('#sizeChips .chip-s').forEach(b => {
+      const m = b.dataset.size;
+      const on = m === 'custom' ? zramSize.mode === 'custom' : zramSize.mode === m;
+      b.classList.toggle('on', on);
+    });
+    const box = $('#customBox');
+    if(box) box.hidden = zramSize.mode !== 'custom';
+    const cv = $('#customVal');
+    if(cv) cv.textContent = zramSize.custom;
+    const minus = $('.custom-box .step[data-step="-1"]');
+    const plus = $('.custom-box .step[data-step="1"]');
+    if(minus) minus.disabled = zramSize.custom <= SIZE_MIN;
+    if(plus) plus.disabled = zramSize.custom >= SIZE_MAX;
+
+    const v = $('#zramSizeVal');
+    if(v) v.textContent = sizeLabel();
+
+    const hint = $('#sizeHint');
+    if(hint){
+      const over = zramSize.mode === 'custom' && zramSize.custom > Math.floor(RAM_GB);
+      hint.textContent = zramSize.mode === 'custom'
+        ? (over
+            ? zramSize.custom + ' GB 已超过物理内存 ' + RAM_GB + ' GB，压缩页可能被频繁换出，建议不超过 ' + Math.floor(RAM_GB) + ' GB'
+            : '范围 ' + SIZE_MIN + '–' + SIZE_MAX + ' GB · 当前约占物理内存的 ' + Math.round(zramSize.custom / RAM_GB * 100) + '%')
+        : '开机按配置重建压缩交换区 · auto 会取物理内存并钳制在 8–16 GB';
+      hint.classList.toggle('warn', over);
+    }
+  }
+
+  function setZramSize(mode, custom, silent){
+    if(mode === 'custom'){
+      zramSize.mode = 'custom';
+      if(typeof custom === 'number') zramSize.custom = Math.max(SIZE_MIN, Math.min(SIZE_MAX, Math.round(custom)));
+    }else{
+      zramSize.mode = mode;
+      // 选了 12G 这类预设时，把数字同步给自定义步进器 ——
+      // 之后点「自定义」应该从当前值接着调，而不是跳回一个不相干的默认值
+      const m = /^(\d+)G$/.exec(mode);
+      if(m) zramSize.custom = Math.max(SIZE_MIN, Math.min(SIZE_MAX, +m[1]));
+    }
+    renderZramSize();
+    if(!silent) markDirty();
+  }
+
   $('#sizeChips').addEventListener('click', e=>{
     const b = e.target.closest('button[data-size]');
     if(!b) return;
-    $$('#sizeChips .chip-s').forEach(x=>x.classList.toggle('on', x === b));
-    const map = {auto:'auto · 8.0 GB','8G':'8 GB','12G':'12 GB','16G':'16 GB','50%':'50% · 5.9 GB','75%':'75% · 8.8 GB','100%':'100% · 11.7 GB','125%':'125% · 14.6 GB'};
-    $('#zramSizeVal').textContent = map[b.dataset.size] || b.dataset.size;
+    // 点「自定义」沿用上一次的数值（预设/上次自定义都会同步过来）
+    setZramSize(b.dataset.size);
+  });
+
+  $('#customBox').addEventListener('click', e=>{
+    const b = e.target.closest('button[data-step]');
+    if(!b) return;
+    setZramSize('custom', zramSize.custom + (+b.dataset.step));
+  });
+
+  renderZramSize();
+
+  /* ---------------- 压缩算法 ---------------- */
+  // 不再是写死的四个：优先用内核 comp_algorithm 里的真实列表，
+  // 常见但本机没有的算法灰掉（禁用），让用户一眼看到「这台机支持什么」。
+  const ALG_META = {
+    zstd:      '压缩率最高，速度中等，现代内核首选',
+    lz4:       '速度最快，压缩率一般，适合低端机',
+    lz4hc:     'lz4 的高压缩模式，压缩率接近 zstd 但更吃 CPU',
+    'lzo-rle': '兼容性最好，老内核常见默认值',
+    lzo:       '最老的算法，压缩率与速度都不占优',
+    deflate:   'zlib 实现，压缩率高但很慢，少见',
+    '842':     'IBM 硬件压缩，仅部分服务器级内核提供',
+    lz4kd:     '华为内核魔改算法，非通用'
+  };
+  const ALG_SHOW = ['zstd', 'lz4', 'lz4hc', 'lzo-rle', 'lzo', 'deflate'];
+  let algSupported = ['zstd', 'lz4', 'lz4hc', 'lzo-rle', 'deflate'];
+  let algCurrent = 'auto';
+  let algActive = 'zstd';
+
+  function renderAlgs(){
+    const box = $('#algChips');
+    if(!box) return;
+    const items = ['auto'].concat(ALG_SHOW);
+    box.innerHTML = items.map(a => {
+      const ok = a === 'auto' || algSupported.indexOf(a) >= 0;
+      const on = algCurrent === a;
+      return '<button class="chip-s' + (on ? ' on' : '') + '" data-alg="' + a + '"' +
+        (ok ? '' : ' disabled') + '>' + a + '</button>';
+    }).join('');
+    const hint = $('#algHint');
+    if(hint){
+      if(algCurrent === 'auto'){
+        hint.textContent = 'auto 会按 zstd → lz4 → lzo-rle → lzo 的顺序挑第一个可用项（当前 ' + algActive + '）';
+      }else{
+        hint.textContent = algCurrent + ' · ' + (ALG_META[algCurrent] || '');
+      }
+    }
+    const v = $('#algVal');
+    if(v) v.textContent = algCurrent === 'auto' ? ('auto · ' + algActive) : algCurrent;
+  }
+
+  async function loadAlgs(){
+    if(ksuApi()){
+      try{
+        const out = await exec('sh ' + shq(MEMKEEP) + ' algs');
+        const m = {};
+        String(out).trim().split(/\r?\n/).forEach(l => {
+          const i = l.indexOf('=');
+          if(i > 0) m[l.slice(0, i)] = l.slice(i + 1).trim();
+        });
+        if(m.list) algSupported = m.list.split(/\s+/).filter(Boolean);
+        if(m.current) algActive = m.current;
+      }catch(e){}
+    }
+    renderAlgs();
+  }
+
+  $('#algChips').addEventListener('click', e=>{
+    const b = e.target.closest('button[data-alg]');
+    if(!b || b.disabled) return;
+    algCurrent = b.dataset.alg;
+    renderAlgs();
     markDirty();
+  });
+
+  loadAlgs();
+
+  /* ---------------- VM 内核参数 ---------------- */
+  // 这些值不是独立可调的：tools.sh 按「保活强度」档位整组写入，
+  // 所以这里做成只读明细 —— 告诉用户当前到底改了什么，而不是给一堆能拧坏的旋钮。
+  const VM_DEFS = [
+    { k:'swappiness', label:'换出倾向', min:0, max:200, step:5,
+      desc:'越高越愿意把后台应用的匿名页压进 zram 而不是直接杀掉。100 = 积极压缩，显著改善多开留存。' },
+    { k:'watermark_scale_factor', label:'内存水位系数', min:10, max:400, step:10,
+      desc:'控制多早开始回收内存。值越高触发越早，后台更不容易被突然杀掉，代价是回收动作更频繁。' },
+    { k:'min_free_kbytes', label:'保留空闲内存', min:32768, max:262144, step:8192, unit:'MB', toMb:true,
+      desc:'系统保底空闲量，低于它才触发直接回收。按物理内存 1/256 计算，并钳制在 64–128 MB。' },
+    { k:'page-cluster', label:'交换预读簇', min:0, max:3, step:1,
+      desc:'从交换区换入时一次预读 2^n 页。设为 0 表示只读当前页，避免解压用不到的页、白烧 CPU。' },
+    { k:'dirty_ratio', label:'脏页上限', min:5, max:40, step:1,
+      desc:'脏页占内存的百分比上限，超过就阻塞写入强制回盘。高一点能让突发写入更顺，但断电丢数据风险略增。' },
+    { k:'compaction_proactiveness', label:'主动规整强度', min:0, max:100, step:5,
+      desc:'内核主动合并内存碎片的积极性。调高可减少大块分配失败，代价是偶发的 CPU 抖动。' }
+  ];
+
+  const VM_PRESET = {
+    balanced: { swappiness:'80',  watermark_scale_factor:'100', min_free_kbytes:'65536', 'page-cluster':'0', dirty_ratio:'15', compaction_proactiveness:'10' },
+    strong:   { swappiness:'100', watermark_scale_factor:'90',  min_free_kbytes:'65536', 'page-cluster':'0', dirty_ratio:'18', compaction_proactiveness:'15' },
+    max:      { swappiness:'120', watermark_scale_factor:'75',  min_free_kbytes:'65536', 'page-cluster':'0', dirty_ratio:'20', compaction_proactiveness:'20' }
+  };
+
+  let vmValues = Object.assign({}, VM_PRESET.strong);
+  let vmOpen = false;
+  let vmLoaded = false;
+  let vmCustomKeys = {};     // 被手动改过的键，用来在列表里标出来
+
+  function vmFormat(k, v){
+    if(k === 'min_free_kbytes'){
+      const n = Math.round((+v || 0) / 1024);
+      return n + ' MB';
+    }
+    return v;
+  }
+
+  function renderVmList(){
+    const box = $('#vmList');
+    if(!box) return;
+    box.hidden = !vmOpen;
+    const toggle = $('.vm-toggle');
+    if(toggle) toggle.classList.toggle('open', vmOpen);
+    const chev = $('#vmChev');
+    if(chev) chev.textContent = vmOpen ? '收起' : '查看';
+    if(!vmOpen) return;
+
+    box.innerHTML = VM_DEFS.map(d => {
+      const raw = vmValues[d.k];
+      const v = raw == null ? '—' : vmFormat(d.k, raw);
+      const over = vmCustomKeys[d.k] ? '<em class="ov">已改</em>' : '';
+      return '<button class="vm-item" data-vm="' + esc(d.k) + '">' +
+        '<div class="h"><b>' + esc(d.k) + '</b><span>' + over + esc(v) + '</span></div>' +
+        '<p>' + esc(d.label) + ' · ' + esc(d.desc) + '</p>' +
+      '</button>';
+    }).join('') +
+    '<div class="vm-foot">点任意一项可单独调整；改动后保活强度会自动切到「自定义」，不再跟随档位。</div>';
+  }
+
+  // 手动改过任意一项后，上方的保活强度切到「自定义」
+  function enterCustomMode(){
+    const seg = $('#presetSeg');
+    if(!seg) return;
+    const customBtn = seg.querySelector('[data-preset="custom"]');
+    if(customBtn) customBtn.hidden = false;
+    $$('#presetSeg button').forEach(b => b.classList.toggle('on', b.dataset.preset === 'custom'));
+    const desc = $('#presetDesc');
+    if(desc) desc.textContent = '已手动微调 VM 参数：这些值不再跟随档位，点回均衡/增强/极限可恢复。';
+  }
+
+  function syncPstats(){
+    const sw = $('#pSw'), ca = $('#pCache'), wm = $('#pWm');
+    if(sw) sw.textContent = vmValues['swappiness'] != null ? vmValues['swappiness'] : '—';
+    if(wm) wm.textContent = vmValues['watermark_scale_factor'] != null ? vmValues['watermark_scale_factor'] : '—';
+    if(ca) ca.textContent = $('#cacheVal') ? $('#cacheVal').textContent : '—';
+  }
+
+  function openVmEdit(def){
+    let v = Math.round(+vmValues[def.k] || 0);
+    if(def.k === 'min_free_kbytes' && !v) v = 65536;
+    const step = def.step || 1;
+    const shown = () => def.toMb ? Math.round(v / 1024) : v;
+    const unit = def.unit || '';
+
+    openSheet({
+      title: def.label,
+      html: '<p class="mono">' + esc(def.k) + '</p>' +
+            '<p>' + esc(def.desc) + '</p>' +
+            '<div class="custom-box" style="margin-top:14px">' +
+              '<button class="step" id="vmMinus">−</button>' +
+              '<div class="step-val"><b id="vmVal">' + shown() + '</b><span>' + unit + '</span></div>' +
+              '<button class="step" id="vmPlus">+</button>' +
+            '</div>' +
+            '<div class="range-hint">范围 ' + (def.toMb ? Math.round(def.min / 1024) : def.min) +
+              '–' + (def.toMb ? Math.round(def.max / 1024) : def.max) + ' ' + unit + '</div>',
+      cancel: '恢复档位',
+      ok: '保存',
+      onCancel: ()=> resetVm(def),
+      onOk: ()=> saveVm(def, v)
+    });
+
+    const paint = ()=>{
+      const el = $('#vmVal'); if(el) el.textContent = shown();
+      const mi = $('#vmMinus'), pl = $('#vmPlus');
+      if(mi) mi.disabled = v <= def.min;
+      if(pl) pl.disabled = v >= def.max;
+    };
+    paint();
+    const mi = $('#vmMinus'), pl = $('#vmPlus');
+    if(mi) mi.onclick = ()=>{ v = Math.max(def.min, v - step); paint(); };
+    if(pl) pl.onclick = ()=>{ v = Math.min(def.max, v + step); paint(); };
+  }
+
+  // 手动改完之后如果数值又正好等于某个档位，就不该继续显示「自定义」。
+  // 只比对能定义档位的 5 个键；min_free_kbytes 是按物理内存算出来的，各机不同，
+  // 拿它参与比对会导致永远匹配不上。
+  const MATCH_KEYS = ['swappiness', 'watermark_scale_factor', 'page-cluster', 'dirty_ratio', 'compaction_proactiveness'];
+
+  function matchPreset(){
+    for(const k of ['balanced', 'strong', 'max']){
+      const p = VM_PRESET[k];
+      if(MATCH_KEYS.every(x => String(vmValues[x]) === String(p[x]))) return k;
+    }
+    return null;
+  }
+
+  // 只把选中态/描述/数字同步过去，不动滑动条与 vmValues，避免多余副作用
+  function reflectPreset(key){
+    const seg = $('#presetSeg');
+    const customBtn = seg ? seg.querySelector('[data-preset="custom"]') : null;
+    if(customBtn) customBtn.hidden = true;
+    $$('#presetSeg button').forEach(x => x.classList.toggle('on', x.dataset.preset === key));
+    const p = PRESETS[key];
+    if(!p) return;
+    const d = $('#presetDesc');
+    if(d) d.textContent = p.desc;
+    const sw = $('#pSw'), wm = $('#pWm');
+    if(sw) sw.textContent = p.sw;
+    if(wm) wm.textContent = p.wm;
+  }
+
+  async function saveVm(def, v){
+    if(ksuApi()){
+      try{
+        const out = await exec('sh ' + shq(MEMKEEP) + ' vmset ' + shq(def.k) + ' ' + v);
+        if(!/^OK/.test(String(out).trim())){
+          toast('保存被拒绝：' + String(out).trim());
+          return;
+        }
+      }catch(e){ toast('保存失败'); return; }
+    }
+    vmValues[def.k] = String(v);
+
+    const m = matchPreset();
+    if(m){
+      // 数值与档位完全一致 → 回到档位，清掉「已改」标记
+      vmCustomKeys = {};
+      reflectPreset(m);
+      toast(def.label + ' 已改为 ' + vmFormat(def.k, v) + '，与「' + ({balanced:'均衡',strong:'增强',max:'极限'}[m]) + '」档位一致');
+    }else{
+      vmCustomKeys[def.k] = true;
+      enterCustomMode();
+      toast(def.label + ' 已改为 ' + vmFormat(def.k, v));
+    }
+    renderVmList();
+    syncPstats();
+    markDirty();
+  }
+
+  async function resetVm(def){
+    if(ksuApi()){
+      try{ await exec('sh ' + shq(MEMKEEP) + ' vmreset'); }catch(e){}
+    }
+    vmCustomKeys = {};
+    const mode = $('#presetSeg button.on');
+    const key = mode && mode.dataset.preset !== 'custom' ? mode.dataset.preset : 'strong';
+    vmValues = Object.assign({}, VM_PRESET[key] || VM_PRESET.strong);
+    renderVmList();
+    syncPstats();
+    applyPreset(key);
+    toast('已恢复为「' + ({balanced:'均衡',strong:'增强',max:'极限'}[key] || key) + '」档位值');
+  }
+
+  async function loadVms(){
+    if(!ksuApi()){ vmValues = Object.assign({}, VM_PRESET.strong); renderVmList(); return; }
+    try{
+      const out = await exec('sh ' + shq(MEMKEEP) + ' vms');
+      const m = {};
+      String(out).trim().split(/\r?\n/).forEach(l => {
+        const i = l.indexOf('=');
+        if(i > 0) m[l.slice(0, i)] = l.slice(i + 1);
+      });
+      if(Object.keys(m).length) vmValues = m;
+    }catch(e){}
+    renderVmList();
+  }
+
+  $('.vm-toggle').addEventListener('click', ()=>{
+    vmOpen = !vmOpen;
+    if(vmOpen && !vmLoaded){ vmLoaded = true; loadVms(); }
+    renderVmList();
   });
 
   $('#algChips').addEventListener('click', e=>{
@@ -1352,6 +1836,22 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     if(arc) arc.setAttribute('stroke-dashoffset', (RING_C * (1 - pct / 100)).toFixed(1));
   }
 
+  function gb(kb){ return (kb / 1048576).toFixed(1); }
+
+  function setZram(usedKb, diskKb, origKb){
+    if(diskKb > 0 && usedKb >= 0){
+      const pct = Math.max(0, Math.min(100, usedKb / diskKb * 100));
+      const bar = $('#zramBar'); if(bar) bar.style.width = pct.toFixed(1) + '%';
+      const pc = $('#zramPct'); if(pc) pc.textContent = Math.round(pct) + '%';
+      const u = $('#zramUse'); if(u) u.textContent = gb(usedKb) + ' / ' + gb(diskKb) + ' GB';
+    }
+    const mini = $('#zramUsedMini'); if(mini) mini.textContent = gb(usedKb) + ' GB';
+    if(usedKb > 0 && origKb > 0){
+      const ra = $('#zramRatio'); if(ra) ra.textContent = (origKb / usedKb).toFixed(2) + '×';
+      const sv = $('#zramSaved'); if(sv) sv.textContent = gb(Math.max(0, origKb - usedKb)) + ' GB';
+    }
+  }
+
   async function loadMem(){
     if(!ksuApi()) return;
     try{
@@ -1361,8 +1861,19 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
         const i = l.indexOf('=');
         if(i > 0) m[l.slice(0, i)] = l.slice(i + 1);
       });
-      const total = +m.total, avail = +m.avail;
-      if(total > 0 && avail >= 0) setHeroUsed(total - avail, total);
+      const total = +m.total, avail = +m.avail, cached = +m.cached;
+      if(total > 0 && avail >= 0){
+        setHeroUsed(total - avail, total);
+        const a = $('#memAvail'); if(a) a.textContent = gb(avail) + ' GB';
+        const c = $('#memCached'); if(c) c.textContent = gb(cached) + ' GB';
+        const dv = $('#devRam'); if(dv) dv.textContent = gb(total) + ' GB';
+      }
+      // zram 的三个值单位都是字节
+      setZram(Math.round((+m.zram_used || 0) / 1024),
+              Math.round((+m.zram_disk || 0) / 1024),
+              Math.round((+m.zram_orig || 0) / 1024));
+      const alg = $('.zchip');
+      if(alg && m.zram_alg) alg.innerHTML = '<span class="dot"></span>' + esc(m.zram_alg);
     }catch(e){}
   }
 
@@ -1565,6 +2076,13 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
       return;
     }
 
+    const vmRow = e.target.closest('.vm-item[data-vm]');
+    if(vmRow){
+      const def = VM_DEFS.filter(d => d.k === vmRow.dataset.vm)[0];
+      if(def) openVmEdit(def);
+      return;
+    }
+
     const b = e.target.closest('[data-action]');
     if(!b) return;
     const a = b.dataset.action;
@@ -1572,23 +2090,12 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
       openPanel();
     } else if(a === 'closeprocs'){
       closePanel();
-    } else if(a === 'apply'){
-      toast('参数已应用 · 无需重启');
-    } else if(a === 'dropcache'){
-      toast('已回收 782 MB 页缓存');
-    } else if(a === 'rezram'){
-      openSheet({
-        title:'重建 ZRAM 分区？',
-        text:'将执行 swapoff → reset → 重设容量与算法 → mkswap → swapon。过程中压缩交换区短暂不可用，系统可能回收部分后台进程。',
-        warn:'建议息屏或空闲时执行。若内核重启后 zram 未就绪，模块会在 service 阶段自动重试。',
-        ok:'确认重建',
-        onOk:()=> toast('正在重建… 完成后将提示')
-      });
     } else if(a === 'suggest'){
-      $$('#sizeChips .chip-s').forEach(x=>x.classList.toggle('on', x.dataset.size === '12G'));
-      $('#zramSizeVal').textContent = '12 GB';
-      markDirty();
+      setZramSize('12G');
+      setTab('tune');
       toast('已选 12 GB，保存后重启生效');
+    } else if(a === 'github'){
+      openUrl('https://github.com/' + UPD_REPO);
     } else if(a === 'copylog'){
       toast('日志已复制到剪贴板');
     } else if(a === 'update'){
@@ -1632,7 +2139,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   });
 
   /* ---------------- boot ---------------- */
-  loadProcs().then(renderAll);
+  loadProcs().then(renderAll).then(loadCaps);
   loadMem();
   const qTab = params.get('tab');
   setTab(qTab || (location.hash ? location.hash.slice(1) : 'monitor'));
@@ -1640,12 +2147,17 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     $('#procPanel').classList.add('on');
     renderPanel();
   }
+  if(params.get('vm') === '1'){
+    vmOpen = true; vmLoaded = true; loadVms();
+  }
+  // 截图/走查用：直接打开一个危险操作的确认弹层
   if(params.get('sheet') === '1'){
     setTimeout(()=>openSheet({
-      title:'重建 ZRAM 分区？',
-      text:'将执行 swapoff → reset → 重设容量与算法 → mkswap → swapon。过程中压缩交换区短暂不可用，系统可能回收部分后台进程。',
-      warn:'建议息屏或空闲时执行。若内核重启后 zram 未就绪，模块会在 service 阶段自动重试。',
-      ok:'确认重建'
+      title:'恢复出厂参数？',
+      text:'将把 config.conf 重置为默认值（auto 容量 / auto 算法 / 增强保活），并重新应用 VM 参数。',
+      warn:'不会自动重建 ZRAM，需重启一次才会恢复默认压缩容量。',
+      ok:'恢复默认',
+      danger:true
     }), 260);
   }
 })();
