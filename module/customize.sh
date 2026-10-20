@@ -67,7 +67,17 @@ SNAP="$MODPATH/system_snapshot.conf"
   v=$(sed -n 's/.*\[\(.*\)\].*/\1/p' /sys/block/zram0/comp_algorithm 2>/dev/null)
   [ -n "$v" ] && echo "zram_algorithm=$v"
   v=$(device_config get activity_manager max_cached_processes 2>/dev/null)
-  [ -n "$v" ] && echo "am_cache_max=$v"
+  [ -n "$v" ] && [ "$v" != "null" ] && echo "am_cache_max=$v"
+  v=$(device_config get activity_manager min_cached_processes 2>/dev/null)
+  [ -n "$v" ] && [ "$v" != "null" ] && echo "am_min_cached=$v"
+  # lmkd 阈值：三档都基于这几个原厂值做偏移，必须原样记下来
+  for k in ro.lmk.psi_partial_stall_ms ro.lmk.psi_complete_stall_ms \
+           ro.lmk.swap_free_low_percentage ro.lmk.swap_util_max; do
+    v=$(getprop "$k" 2>/dev/null)
+    [ -n "$v" ] && echo "$k=$v"
+  done
+  v=$(device_config get activity_manager_native_boot use_freezer 2>/dev/null)
+  [ -n "$v" ] && echo "use_freezer=$v"
 } > "$SNAP" 2>/dev/null
 chmod 0644 "$SNAP" 2>/dev/null
 ui_print "- 已记录系统原值快照，可一键恢复"

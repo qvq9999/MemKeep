@@ -199,6 +199,10 @@ cmd_vms() {
   # 缓存进程上限不属于 /proc/sys/vm，单独从 ActivityManager 取
   amc=$(device_config get activity_manager max_cached_processes 2>/dev/null)
   [ -n "$amc" ] && printf 'max_cached_processes=%s\n' "$amc"
+
+  # MGLRU 工作集保护（最近 N 毫秒访问过的页不淘汰），0 = 关闭
+  ttl=$(cat /sys/kernel/mm/lru_gen/min_ttl_ms 2>/dev/null)
+  printf 'min_ttl_ms=%s\n' "${ttl:-0}"
 }
 
 # 压缩算法能力探测。
@@ -233,6 +237,7 @@ cmd_vmset() {
     page-cluster)              lo=0;   hi=3;    cfgkey=VM_PAGE_CLUSTER ;;
     dirty_ratio)               lo=5;   hi=40;   cfgkey=VM_DIRTY_RATIO ;;
     compaction_proactiveness)  lo=0;   hi=100;  cfgkey=VM_COMPACT ;;
+    min_ttl_ms)                lo=0;   hi=3000; cfgkey=VM_MIN_TTL ;;
     *) echo "REFUSE_INVALID_KEY"; return 1 ;;
   esac
 
@@ -245,7 +250,14 @@ cmd_vmset() {
   set_conf_kv "$cfgkey" "$val"
   set_conf_kv VM_CUSTOM true
   # 立即生效，不必等重启
-  if [ -w "/proc/sys/vm/$key" ]; then
+  if [ "$key" = "min_ttl_ms" ]; then
+    if [ -w /sys/kernel/mm/lru_gen/min_ttl_ms ]; then
+      echo "$val" > /sys/kernel/mm/lru_gen/min_ttl_ms 2>/dev/null
+    else
+      echo "OK $key $val (mglru unsupported, saved only)"
+      return 0
+    fi
+  elif [ -w "/proc/sys/vm/$key" ]; then
     echo "$val" > "/proc/sys/vm/$key" 2>/dev/null
   fi
   echo "OK $key $val"
@@ -280,6 +292,20 @@ cmd_caps() {
     echo "guard=0"
   fi
   echo "amcache=$(device_config get activity_manager max_cached_processes 2>/dev/null)"
+  # 缓存应用冻结器：留内存但不上 CPU，直接决定"多开切回来要不要冷启动"
+  fz=$(device_config get activity_manager_native_boot use_freezer 2>/dev/null)
+  [ "$fz" = "true" ] && echo "freezer=1" || echo "freezer=0"
+  [ -d /sys/kernel/mm/lru_gen ] && echo "mglru=1" || echo "mglru=0"
+  # memcg 是 v1 还是 v2：v1 没有 memory.low，回收目标层做不了
+  if [ -e /sys/fs/cgroup/cgroup.controllers ]; then
+    if grep -q memory /sys/fs/cgroup/cgroup.controllers 2>/dev/null; then
+      echo "memcg=v2"
+    else
+      echo "memcg=v2-nomem"
+    fi
+  else
+    echo "memcg=v1"
+  fi
   if [ -d /data/adb/ksu ]; then
     echo "root=KernelSU"
   elif [ -d /data/adb/ap ]; then
@@ -323,6 +349,7 @@ cmd_reset() {
   set_conf_kv LATE_REAPPLY true
   set_conf_kv VM_CUSTOM false
   set_conf_kv AM_CACHE_MAX 0
+  set_conf_kv VM_MIN_TTL 0
   set_conf_kv KEEP_DAEMON true
   echo "OK"
 }
@@ -374,6 +401,63 @@ cmd_keep_set() {
   echo "OK $pkg $tier"
 }
 
+# 保活体检：把「到底有没有生效」变成可验证的数字。
+# 之前只能看到「保护中」三个字，但分数有没有压进去、应用是不是真被冻结、
+# 回收有没有伤到工作集，全靠猜。
+cmd_health() {
+  # 工作集回读：页面被淘汰后又立刻读回来的次数。
+  # 增长快 = 回收把热页淘汰了 = 应用切回来要重新加载，也就是"假保活"。
+  awk '
+    /^workingset_refault_anon/ {ra=$2}
+    /^workingset_refault_file/ {rf=$2}
+    /^pgrefault_anon/          {pa=$2}
+    /^pgrefault_file/          {pf=$2}
+    /^pgsteal_anon/            {sa=$2}
+    /^pgsteal_file/            {sf=$2}
+    END {
+      printf "refault_anon=%d\n", ra+pa
+      printf "refault_file=%d\n", rf+pf
+      printf "steal_anon=%d\n", sa
+      printf "steal_file=%d\n", sf
+    }' /proc/vmstat 2>/dev/null
+
+  fz=$(device_config get activity_manager_native_boot use_freezer 2>/dev/null)
+  if [ "$fz" = "true" ]; then echo "freezer=1"; else echo "freezer=0"; fi
+
+  frozen=0
+  if [ "$fz" = "true" ]; then
+    frozen=$(dumpsys activity 2>/dev/null | grep -m1 -iE "Apps frozen:" | grep -oE "[0-9]+" | head -n1)
+    case "$frozen" in ''|*[!0-9]*) frozen=0 ;; esac
+  fi
+  echo "frozen=$frozen"
+
+  total=0
+  okc=0
+  for pkg in $(cmd_keep_list | awk '{print $1}'); do
+    [ -n "$pkg" ] || continue
+    total=$((total + 1))
+    tier=$(cmd_keep_list | awk -v p="$pkg" '$1==p{print $2; exit}')
+    tgt=$(score_of "$tier")
+
+    adj=""
+    for pd in $(pids_of_pkg "$pkg"); do
+      a=$(cat "/proc/$pd/oom_score_adj" 2>/dev/null)
+      case "$a" in ''|*[!0-9-]*) continue ;; esac
+      if [ -z "$adj" ] || [ "$a" -lt "$adj" ]; then adj=$a; fi
+    done
+    # 应用没在跑时 adj 为空，用 -999 标记，前端据此显示"未运行"
+    [ -n "$adj" ] || adj="-9999"
+    [ "$adj" = "$tgt" ] && okc=$((okc + 1))
+
+    bucket=$(am get-standby-bucket "$pkg" 2>/dev/null | tr -d ' \r')
+    case "$bucket" in ''|*[!0-9]*) bucket=-1 ;; esac
+    printf 'app %s %s %s %s\n' "$pkg" "$adj" "$bucket" "$tgt"
+  done
+
+  echo "kept=$total"
+  echo "kept_ok=$okc"
+}
+
 # 输出当前配置（config.conf 的有效键值），供 WebUI 回填。
 # 之前前端只写不读，所以"保存后再进来又变回默认"。
 cmd_config() {
@@ -381,13 +465,13 @@ cmd_config() {
   grep -vE '^[[:space:]]*(#|$)' "$CONFIG" 2>/dev/null
 }
 
-# 一次性写入高级设置（缓存上限 + 6 个 VM 参数），并立即生效。
-# 顺序：cache swappiness watermark minfree pagecluster dirtyratio compact
+# 一次性写入高级设置（缓存上限 + 7 个 VM 参数），并立即生效。
+# 顺序：cache swappiness watermark minfree pagecluster dirtyratio compact min_ttl
 cmd_vmsave() {
-  [ $# -eq 7 ] || { echo "REFUSE_ARGS"; return 1; }
+  [ $# -eq 8 ] || { echo "REFUSE_ARGS"; return 1; }
 
-  c=$1; sw=$2; wm=$3; mf=$4; pc=$5; dr=$6; cp=$7
-  for v in "$c" "$sw" "$wm" "$mf" "$pc" "$dr" "$cp"; do
+  c=$1; sw=$2; wm=$3; mf=$4; pc=$5; dr=$6; cp=$7; ttl=$8
+  for v in "$c" "$sw" "$wm" "$mf" "$pc" "$dr" "$cp" "$ttl"; do
     case "$v" in ''|*[!0-9]*) echo "REFUSE_INVALID"; return 1 ;; esac
   done
   [ "$c"  -ge 64 ]    && [ "$c"  -le 512 ]    || { echo "REFUSE_RANGE cache 64 512"; return 1; }
@@ -397,6 +481,7 @@ cmd_vmsave() {
   [ "$pc" -ge 0 ]     && [ "$pc" -le 3 ]      || { echo "REFUSE_RANGE pagecluster 0 3"; return 1; }
   [ "$dr" -ge 5 ]     && [ "$dr" -le 40 ]     || { echo "REFUSE_RANGE dirty 5 40"; return 1; }
   [ "$cp" -ge 0 ]     && [ "$cp" -le 100 ]    || { echo "REFUSE_RANGE compact 0 100"; return 1; }
+  [ "$ttl" -ge 0 ]    && [ "$ttl" -le 3000 ]  || { echo "REFUSE_RANGE minttl 0 3000"; return 1; }
 
   set_conf_kv AM_CACHE_MAX "$c"
   set_conf_kv VM_CUSTOM true
@@ -406,6 +491,7 @@ cmd_vmsave() {
   set_conf_kv VM_PAGE_CLUSTER "$pc"
   set_conf_kv VM_DIRTY_RATIO "$dr"
   set_conf_kv VM_COMPACT "$cp"
+  set_conf_kv VM_MIN_TTL "$ttl"
 
   # 立刻生效，不必等重启
   device_config put activity_manager max_cached_processes "$c" >/dev/null 2>&1
@@ -415,6 +501,8 @@ cmd_vmsave() {
     k=${kv%%=*}; v=${kv#*=}
     [ -e "/proc/sys/vm/$k" ] && { chmod 0644 "/proc/sys/vm/$k" 2>/dev/null; echo "$v" > "/proc/sys/vm/$k" 2>/dev/null; }
   done
+  # MGLRU 的路径不在 /proc/sys/vm 下，单独写
+  [ -w /sys/kernel/mm/lru_gen/min_ttl_ms ] && echo "$ttl" > /sys/kernel/mm/lru_gen/min_ttl_ms 2>/dev/null
   echo "OK"
 }
 
@@ -497,8 +585,43 @@ cmd_keep_apply() {
     # 让应用进 active bucket 并豁免 Doze —— 进程万一被回收，通知也不会被掐。
     am set-standby-bucket "$pkg" active >/dev/null 2>&1
     cmd deviceidle whitelist "+$pkg" >/dev/null 2>&1
+    apply_memcg_low "$pkg" "$tier"
   done
   echo "OK applied"
+}
+
+# cgroup v2 的 memory.low：让这个应用的内存成为「最后被回收」的一块。
+# oom_score_adj 只决定杀谁，memory.low 决定回收谁 —— 在更上游一层。
+# 很多机型 memcg 仍是 v1（没有 memory.low），那就静默跳过，不假装成功。
+# 上限按物理内存的 1/10 与 384MB 取小，避免把系统在别处挤到 OOM。
+apply_memcg_low() {
+  pkg="$1"
+  tier="$2"
+  [ -e /sys/fs/cgroup/cgroup.controllers ] || return 0
+  grep -q memory /sys/fs/cgroup/cgroup.controllers 2>/dev/null || return 0
+
+  uid=$(pids_of_pkg "$pkg" | while read -r pd; do
+          awk '/^Uid:/{print $2; exit}' "/proc/$pd/status" 2>/dev/null
+        done | head -n 1)
+  [ -n "$uid" ] || return 0
+
+  cg="/sys/fs/cgroup/uid_$uid"
+  [ -d "$cg" ] && [ -w "$cg/memory.low" ] || return 0
+
+  total_kb=$(awk '/MemTotal/{print $2; exit}' /proc/meminfo)
+  case "$total_kb" in ''|*[!0-9]*) total_kb=4194304 ;; esac
+  cap=$((total_kb * 1024 / 10))
+  [ "$cap" -gt 402653184 ] && cap=402653184        # 384 MB
+  [ "$tier" = "restartable" ] && cap=$((cap / 2))
+
+  cur=$(cat "$cg/memory.current" 2>/dev/null)
+  case "$cur" in ''|*[!0-9]*) cur=0 ;; esac
+  val=$cur
+  [ "$val" -gt "$cap" ] && val=$cap
+  [ "$val" -gt 0 ] || return 0
+
+  chmod 0644 "$cg/memory.low" 2>/dev/null
+  echo "$val" > "$cg/memory.low" 2>/dev/null
 }
 
 # 守护：名单里的应用被系统改回默认值后重新压回去。
@@ -526,6 +649,7 @@ case "$1" in
   logs)      cmd_logs "$2" ;;
   kills)     cmd_kills "$2" ;;
   apps)      cmd_apps ;;
+  health)    cmd_health ;;
   config)    cmd_config ;;
   vmsave)    shift; cmd_vmsave "$@" ;;
   restore)   cmd_restore ;;

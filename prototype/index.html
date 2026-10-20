@@ -206,6 +206,29 @@ html[data-theme="light"] .ring .arc{filter:drop-shadow(0 0 7px rgba(15,159,104,.
   border-top:1px solid var(--line);font-size:12.5px;font-weight:550;color:var(--ac);
 }
 .more-btn svg{width:12px;height:12px;stroke:currentColor;stroke-width:2.4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+/* 保活卡底部两个入口并排 */
+.ret-acts{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line)}
+.ret-acts .more-btn{border-top:0;height:40px;font-size:12px}
+.ret-acts .more-btn + .more-btn{border-left:1px solid var(--line)}
+
+/* ============ 保活体检 ============ */
+.hs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.hs-grid div{padding:9px 8px;border-radius:12px;background:var(--s2);border:1px solid var(--line);text-align:center}
+.hs-grid i{display:block;font-size:10px;color:var(--tx3);font-style:normal;letter-spacing:.1px}
+.hs-grid b{display:block;font-size:14.5px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums}
+.hs-grid b.warn{color:var(--warn)}
+.hs-grid b.ok{color:var(--ac)}
+.hs-list{border:1px solid var(--line);border-radius:13px;overflow:hidden;margin-top:11px}
+.hs-row{display:flex;align-items:center;gap:8px;padding:9px 11px;font-size:12.5px}
+.hs-row + .hs-row{border-top:1px solid var(--line)}
+.hs-row .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tx)}
+.hs-row .adj{flex:none;font-size:11px;color:var(--tx3);font-variant-numeric:tabular-nums}
+.hs-row .st{flex:none;font-size:10px;padding:2px 6px;border-radius:5px;font-weight:600}
+.hs-row .st.ok{color:var(--ac);background:var(--ac-soft)}
+.hs-row .st.warn{color:var(--warn);background:var(--warn-soft)}
+.hs-row .st.off{color:var(--tx3);background:var(--s2)}
+.hs-note{font-size:11px;color:var(--tx3);line-height:1.65;margin-top:11px}
+.hs-note b{color:var(--tx2);font-weight:600}
 
 /* ============ 链接行（GitHub 等） ============ */
 .link-row{display:flex;align-items:center;gap:11px;width:100%;padding:13px 16px;text-align:left}
@@ -736,7 +759,10 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
         </div>
         <div class="ret-line"><span>保护中应用</span><b class="num" id="keptCount">—</b></div>
         <div class="ret-line"><span>守护进程</span><b style="font-weight:550" id="guardState">—</b></div>
-        <button class="more-btn" data-action="openapps">添加保活应用<svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+        <div class="ret-acts">
+          <button class="more-btn" data-action="openapps">添加保活应用</button>
+          <button class="more-btn" data-action="health">保活体检</button>
+        </div>
       </div>
 
     </section>
@@ -896,7 +922,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   </main>
 
   <div class="savebar" id="saveBar">
-    <button id="saveBtn"><span class="lbl">保存并应用</span><span class="sub" id="saveSub">VM 与保活立即生效 · ZRAM 需重启</span></button>
+    <button id="saveBtn"><span class="lbl">保存并应用</span><span class="sub" id="saveSub">VM 立即生效 · LMKD 与 ZRAM 需重启</span></button>
   </div>
 
   <nav class="tabbar" id="tabbar">
@@ -1323,10 +1349,13 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   drawSpark();
 
   /* ---------------- mock state ---------------- */
+  // 三档不再是三组硬编码数字，而是「原厂值 + 偏移」：
+  // 缓存上限与 lmkd 阈值都跟着设备原厂值走，各家 ROM 差异很大，写死必然有机器被打反向优化。
+  // cache 只放显示用的倍率，真实值从 device_config 读回来再展示。
   const PRESETS = {
-    balanced: {desc:'较稳妥：压缩与回收之间取平衡，功耗与延迟接近原厂。', sw:80,  cache:128, wm:100},
-    strong:   {desc:'较强保活：后台页优先压进 zram 而不是直接回收，日常多开推荐。', sw:100, cache:256, wm:90},
-    max:      {desc:'极限保活：进一步压低内存水位，后台留存最多；功耗与偶发卡顿风险上升。', sw:120, cache:384, wm:75}
+    balanced: {desc:'贴近原厂：lmkd 阈值不动，只把 swappiness 抬到 90，功耗优先。', sw:90,  cache:'原厂', wm:100},
+    strong:   {desc:'日常多开推荐：水位提前、lmkd 延后动手、缓存上限 ×1.5，并保护最近 1 秒的工作集。', sw:110, cache:'×1.5', wm:125},
+    max:      {desc:'极限留存：水位 150、lmkd ×1.8、工作集保护 2 秒；功耗与偶发卡顿风险上升。', sw:130, cache:'×2', wm:150}
   };
 
   /* ---------------- 保活强度 ---------------- */
@@ -1352,11 +1381,12 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     $('#pSw').textContent = p.sw;
     $('#pCache').textContent = p.cache;
     $('#pWm').textContent = p.wm;
-    // 选回档位时，VM 与缓存上限的手动覆盖一并失效
+    // 选回档位时，手动覆盖一并失效
     currentMode = key;          // 保存时要写回 KEEP_MODE，不记就会写错档
     vmCustomKeys = {};
-    vmValues = Object.assign({}, VM_PRESET[key] || VM_PRESET.strong);
-    vmValues['max_cached_processes'] = String(p.cache);
+    // 合并而不是整体替换：缓存上限 / min_free_kbytes 是从内核读回来的真实值，
+    // 用预设里的占位数字盖掉会让界面显示与设备实际不符
+    vmValues = Object.assign({}, vmValues, VM_PRESET[key] || {});
     renderVmList();
     if(!silent) markDirty();
   }
@@ -1522,12 +1552,14 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   const VM_DEFS = [
     { k:'max_cached_processes', label:'缓存进程上限', min:64, max:512, step:32,
       desc:'系统最多保留多少个后台缓存进程。值越大越耐多开，也越吃内存；写入 ActivityManager，保存即生效。' },
+    { k:'min_ttl_ms', label:'工作集保护', min:0, max:3000, step:250, unit:'ms',
+      desc:'最近这么多毫秒内访问过的页不许淘汰，直接决定「切回应用要不要重读」。0 = 关闭；1000 已能消掉可感的抖动，调太高会让内核更倾向于整个杀应用。' },
     { k:'swappiness', label:'换出倾向', min:0, max:200, step:5,
-      desc:'越高越愿意把后台应用的匿名页压进 zram 而不是直接杀掉。100 = 积极压缩，显著改善多开留存。' },
+      desc:'越高越愿意把后台应用的匿名页压进 zram 而不是直接杀掉。100 是 Android 默认；130 只在 zram 大于 1.5 倍物理内存时才有意义。' },
     { k:'watermark_scale_factor', label:'内存水位系数', min:10, max:400, step:10,
       desc:'控制多早开始回收内存。值越高触发越早，后台更不容易被突然杀掉，代价是回收动作更频繁。' },
     { k:'min_free_kbytes', label:'保留空闲内存', min:32768, max:262144, step:8192, unit:'MB', toMb:true,
-      desc:'系统保底空闲量，低于它才触发直接回收。按物理内存 1/256 计算，并钳制在 64–128 MB。' },
+      desc:'系统保底空闲量，低于它才触发直接回收。三档分别按物理内存的 1/512、1/256、1/192 计算，钳制在 32–160 MB。' },
     { k:'page-cluster', label:'交换预读簇', min:0, max:3, step:1,
       desc:'从交换区换入时一次预读 2^n 页。设为 0 表示只读当前页，避免解压用不到的页、白烧 CPU。' },
     { k:'dirty_ratio', label:'脏页上限', min:5, max:40, step:1,
@@ -1536,10 +1568,12 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
       desc:'内核主动合并内存碎片的积极性。调高可减少大块分配失败，代价是偶发的 CPU 抖动。' }
   ];
 
+  // 只放「三档确实不同」的项。缓存上限、min_free_kbytes 是设备相关的，
+  // 由后端按原厂值/物理内存算出来，前端不预设具体数字（否则会盖掉真实值）。
   const VM_PRESET = {
-    balanced: { max_cached_processes:'128', swappiness:'80',  watermark_scale_factor:'100', min_free_kbytes:'65536', 'page-cluster':'0', dirty_ratio:'15', compaction_proactiveness:'10' },
-    strong:   { max_cached_processes:'256', swappiness:'100', watermark_scale_factor:'90',  min_free_kbytes:'65536', 'page-cluster':'0', dirty_ratio:'18', compaction_proactiveness:'15' },
-    max:      { max_cached_processes:'384', swappiness:'120', watermark_scale_factor:'75',  min_free_kbytes:'65536', 'page-cluster':'0', dirty_ratio:'20', compaction_proactiveness:'20' }
+    balanced: { swappiness:'90',  watermark_scale_factor:'100', 'page-cluster':'0', dirty_ratio:'20', compaction_proactiveness:'10', min_ttl_ms:'0' },
+    strong:   { swappiness:'110', watermark_scale_factor:'125', 'page-cluster':'0', dirty_ratio:'20', compaction_proactiveness:'25', min_ttl_ms:'1000' },
+    max:      { swappiness:'130', watermark_scale_factor:'150', 'page-cluster':'0', dirty_ratio:'20', compaction_proactiveness:'40', min_ttl_ms:'2000' }
   };
 
   let vmValues = Object.assign({}, VM_PRESET.strong);
@@ -1574,7 +1608,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
         '<p>' + esc(d.label) + ' · ' + esc(d.desc) + '</p>' +
       '</button>';
     }).join('') +
-    '<div class="vm-foot">点任意一项可单独调整；改动后保活强度会自动切到「自定义」，不再跟随档位。</div>';
+    '<div class="vm-foot">点任意一项可单独调整；改动后保活强度会自动切到「自定义」。' + '缓存上限与 min_free_kbytes 由后端按原厂值 / 物理内存计算，切档后需重启才会刷新成新值。</div>';
   }
 
   // 手动改过任意一项后，上方的保活强度切到「自定义」
@@ -1635,7 +1669,9 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   // 手动改完之后如果数值又正好等于某个档位，就不该继续显示「自定义」。
   // 只比对能定义档位的 5 个键；min_free_kbytes 是按物理内存算出来的，各机不同，
   // 拿它参与比对会导致永远匹配不上。
-  const MATCH_KEYS = ['max_cached_processes', 'swappiness', 'watermark_scale_factor', 'page-cluster', 'dirty_ratio', 'compaction_proactiveness'];
+  // 只用「三档确实不同」的项判定。缓存上限与 min_free_kbytes 跟设备走，
+  // 拿它们参与比对会导致某些机型永远匹配不上档位。
+  const MATCH_KEYS = ['swappiness', 'watermark_scale_factor', 'page-cluster', 'dirty_ratio', 'compaction_proactiveness', 'min_ttl_ms'];
 
   function matchPreset(){
     for(const k of ['balanced', 'strong', 'max']){
@@ -1772,7 +1808,8 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
       if(Object.keys(vmCustomKeys).length){
         const v = k => String(vmValues[k] || 0);
         const cmd = 'vmsave ' + [v('max_cached_processes'), v('swappiness'), v('watermark_scale_factor'),
-          v('min_free_kbytes'), v('page-cluster'), v('dirty_ratio'), v('compaction_proactiveness')].join(' ');
+          v('min_free_kbytes'), v('page-cluster'), v('dirty_ratio'), v('compaction_proactiveness'),
+          v('min_ttl_ms')].join(' ');
         const r = await shell(cmd, 20000);
         if(!/^OK/.test(String(r).trim())) throw new Error(String(r).trim());
       }else{
@@ -1782,7 +1819,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
       dirtyCount = 0;
       $('#saveSub').textContent = '已写入 config.conf';
       toast('已保存 · ZRAM 变更重启后生效');
-      setTimeout(()=>{ $('#saveSub').textContent = 'VM 与保活立即生效 · ZRAM 需重启'; }, 2400);
+      setTimeout(()=>{ $('#saveSub').textContent = 'VM 立即生效 · LMKD 与 ZRAM 需重启'; }, 2400);
     }catch(e){
       $('#saveSub').textContent = '保存失败';
       toast('保存失败：' + (e && e.message ? e.message : '未知错误'));
@@ -1796,7 +1833,8 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     if(!hasKsu()){
       if(DEMO){
         currentMode = 'strong';
-        vmValues['max_cached_processes'] = '256';
+        vmValues['max_cached_processes'] = '512';
+        vmValues['min_free_kbytes'] = '65536';
         applyPreset('strong', true);
         renderZramSize();
         renderAlgs();
@@ -1838,7 +1876,8 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
           'min_free_kbytes': m.VM_MIN_FREE,
           'page-cluster': m.VM_PAGE_CLUSTER,
           'dirty_ratio': m.VM_DIRTY_RATIO,
-          'compaction_proactiveness': m.VM_COMPACT
+          'compaction_proactiveness': m.VM_COMPACT,
+          'min_ttl_ms': m.VM_MIN_TTL
         };
         Object.keys(map).forEach(k=>{ if(map[k] != null) vmValues[k] = map[k]; });
         vmCustomKeys = {};
@@ -2399,6 +2438,96 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     toast(willKeep ? ('已加入保活 · ' + pkg) : ('已取消保活 · ' + pkg));
   }
 
+  /* ---------------- 保活体检 ---------------- */
+  // 之前只能看到「保护中」三个字，但分数有没有真的压进去、应用是不是被冻结、
+  // 回收有没有伤到工作集，全靠猜。这一屏把这些变成可读的数字。
+  const BUCKET_NAME = { 10:'active', 20:'working set', 30:'frequent', 40:'rare', 45:'restricted' };
+  const ADJ_TEXT = { '-1000':'-1000', '-999':'-999' };
+
+  function healthHTML(d, apps){
+    const kept = +(d.kept || 0), okN = +(d.kept_ok || 0);
+    const frozen = +(d.frozen || 0);
+    const ra = +(d.refault_anon || 0), rf = +(d.refault_file || 0);
+    const total = ra + rf;
+
+    // 生效比例：被守护压住的应用数 / 名单总数
+    const okCls = kept === 0 ? '' : (okN === kept ? 'ok' : 'warn');
+
+    let html = '<div class="hs-grid">' +
+      '<div><i>保活生效</i><b class="' + okCls + '">' + okN + '/' + kept + '</b></div>' +
+      '<div><i>已冻结</i><b>' + (d.freezer === '1' ? frozen : '—') + '</b></div>' +
+      '<div><i>工作集回读</i><b>' + (total >= 10000 ? (total / 1000).toFixed(1) + 'k' : total) + '</b></div>' +
+    '</div>';
+
+    if(apps.length){
+      html += '<div class="hs-list">' + apps.map(a => {
+        const running = a.adj !== '-9999';
+        const good = running && a.adj === a.tgt;
+        const cls = !running ? 'off' : (good ? 'ok' : 'warn');
+        const txt = !running ? '未运行' : (good ? '已生效' : '被改回');
+        const bkt = BUCKET_NAME[a.bucket] || (a.bucket === '-1' ? '—' : a.bucket);
+        return '<div class="hs-row">' +
+          '<span class="nm">' + esc(LABELS[a.pkg] || a.pkg) + '</span>' +
+          '<span class="adj">' + (running ? a.adj : '—') + ' · ' + esc(bkt) + '</span>' +
+          '<span class="st ' + cls + '">' + txt + '</span>' +
+        '</div>';
+      }).join('') + '</div>';
+    }
+
+    // 诊断：只给能确定的结论，不猜
+    const notes = [];
+    if(kept === 0){
+      notes.push('名单里还没有应用。点「添加保活应用」选一个。');
+    }else if(okN < kept){
+      notes.push('有 ' + (kept - okN) + ' 个应用的 oom 分数当前与目标不符。守护每 5 秒会重新压一次；若长期不符，说明系统在频繁改写它（这种应用建议改用可重启档）。');
+    }
+    if(d.freezer === '0'){
+      notes.push('<b>缓存应用冻结器未开启</b>：缓存应用仍在跑 CPU，更容易被回收，也更耗电。');
+    }
+    if(d.mglru === '0'){
+      notes.push('内核未启用 MGLRU，工作集保护（min_ttl_ms）不会生效。');
+    }
+    if(d.memcg === 'v1'){
+      notes.push('本机 memcg 是 v1，没有 memory.low，回收目标层做不了保护 —— 只能靠 oom 分数这一层。');
+    }
+    notes.push('工作集回读是<b>自开机累计</b>：数字越小，说明回收越少伤到热页，应用切回来才不用重新加载。');
+
+    html += '<div class="hs-note">' + notes.join('<br>') + '</div>';
+    return html;
+  }
+
+  async function openHealthSheet(){
+    openSheet({ title:'保活体检', html:'<p>读取中…</p>', single:true, ok:'关闭' });
+    let d = {};
+    const apps = [];
+
+    if(hasKsu()){
+      try{
+        const out = await shell('health', 30000);
+        String(out).split(/\r?\n/).forEach(l => {
+          const t = l.trim();
+          if(!t) return;
+          if(t.indexOf('app ') === 0){
+            const c = t.split(/\s+/);
+            apps.push({ pkg: c[1], adj: c[2], bucket: c[3], tgt: c[4] });
+          }else{
+            const i = t.indexOf('=');
+            if(i > 0) d[t.slice(0, i)] = t.slice(i + 1).trim();
+          }
+        });
+      }catch(e){ console.warn('[health]', e && (e.message || e)); }
+    }else if(DEMO){
+      d = { freezer:'1', frozen:'3', mglru:'1', memcg:'v2', kept:'2', kept_ok:'2',
+            refault_anon:'18421', refault_file:'9032' };
+      apps.push({ pkg:'com.tencent.mm', adj:'-1000', bucket:'10', tgt:'-1000' });
+      apps.push({ pkg:'com.ss.android.ugc.aweme', adj:'-999', bucket:'10', tgt:'-999' });
+    }
+
+    // 只更新内容，不动按钮（弹层已打开，避免闪一下再开）
+    const body = $('#sheetBody');
+    if(body) body.innerHTML = healthHTML(d, apps);
+  }
+
   /* ---------------- 应用选择（保活名单） ---------------- */
   // 之前只能从"正在运行的进程"里挑，没运行的应用根本选不到。
   // apps 子命令走 pm list packages -3，再用真正的名单标注保护状态。
@@ -2655,6 +2784,8 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
       openPanel();
     } else if(a === 'closeprocs'){
       closePanel();
+    } else if(a === 'health'){
+      openHealthSheet();
     } else if(a === 'openapps'){
       openAppPanel();
     } else if(a === 'closeapps'){
