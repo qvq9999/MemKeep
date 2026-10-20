@@ -134,32 +134,31 @@ cmd_procs() {
   case "$limit" in ''|*[!0-9]*) limit=40 ;; esac
 
   if ps_can_rss; then
-    # 只取 RSS 前 limit 个进程，再把这些进程的状态一次性读出来。
-    # 旧实现是「每个 pid fork 一次 cat + 一次 awk」：60 个进程 = 120 次 fork，
-    # 手机上每次 fork 8–20ms，单这一项就吃掉 1s 上下，是首屏最重的一笔。
-    # 现在 ps/sort/head 之后只 fork 三个 awk，而且每个 awk 一次读多个文件。
-    top=$(ps -A -o PID,RSS,NAME 2>/dev/null | tail -n +2 | sort -k2 -nr | head -n "$limit")
-    [ -n "$top" ] || return 0
-    pids=$(printf '%s\n' "$top" | awk '{print $1}')
-    adj_paths=""; st_paths=""
-    for p in $pids; do
-      adj_paths="$adj_paths /proc/$p/oom_score_adj"
-      st_paths="$st_paths /proc/$p/status"
-    done
-    # FILENAME 里带着 pid，所以一个 awk 就能把「pid→值」的映射读出来
-    adj_dump=$(awk 'FNR==1{ p=FILENAME; sub("/oom_score_adj$","",p); sub(".*/","",p); print p, $1 }' $adj_paths 2>/dev/null)
-    uid_dump=$(awk '/^Uid:/{ p=FILENAME; sub("/status$","",p); sub(".*/","",p); print p, $2 }' $st_paths 2>/dev/null)
-    printf '%s\n' "$top" | awk -v A="$adj_dump" -v U="$uid_dump" '
-      BEGIN{
-        n=split(A, la, "\n"); for(i=1;i<=n;i++){ split(la[i], f, " "); if(f[1]!="") adj[f[1]]=f[2] }
-        n=split(U, lu, "\n"); for(i=1;i<=n;i++){ split(lu[i], f, " "); if(f[1]!="") uid[f[1]]=f[2] }
-      }
-      {
-        pid=$1
-        name=$3; for(i=4;i<=NF;i++) name=name " " $i
-        if(name=="") name="?"
-        printf "%s\t%s\t%s\t%s\t%s\n", pid, (pid in uid ? uid[pid] : -1), (pid in adj ? adj[pid] : -1), $2+0, name
-      }'
+    # 这里在 v3.3 一度被改成「一次 awk 读 60 个 /proc 文件 + 一个 awk 做 join」，
+    # 想把 120 次 fork 压到 3 次；结果在真机上两个 dump 都是空的，uid/adj 全部落到 -1，
+    # 前端 isSys 判定成「全是系统进程」，首页一行都不显示 —— 性能优化不能牺牲可用性。
+    # 现在退回 v3.2 已验证的逐进程读取，只把「每个 pid 两个 fork」合成一个，
+    # 行为与 v3.2 完全一致（60 进程 60 次 fork）。
+    #   < /dev/null 是保险：两个文件都不存在时 awk 没有文件参数会去读 stdin，
+    #   在 WebUI 的 exec 环境里 stdin 不是 EOF，会直接卡住整条 boot。
+    ps -A -o PID,RSS,NAME 2>/dev/null | tail -n +2 \
+      | sort -k2 -nr | head -n "$limit" \
+      | while read -r pid rss name; do
+          [ -n "$pid" ] || continue
+          uid=-1; adj=-1
+          if [ -r "/proc/$pid/oom_score_adj" ] || [ -r "/proc/$pid/status" ]; then
+            ua=$(awk 'FILENAME ~ /oom_score_adj$/ { adj = $1 + 0 }
+                      /^Uid:/ { uid = $2 }
+                      END { printf "%s %s\n", (uid == "" ? "-1" : uid), (adj == "" ? "-1" : adj) }' \
+                 "/proc/$pid/oom_score_adj" "/proc/$pid/status" 2>/dev/null < /dev/null)
+            uid=${ua%% *}
+            adj=${ua##* }
+            [ -n "$uid" ] || uid=-1
+            [ -n "$adj" ] || adj=-1
+          fi
+          printf '%s\t%s\t%s\t%s\t%s\n' \
+            "$pid" "$uid" "$adj" "${rss:-0}" "${name:-?}"
+        done
     return
   fi
 

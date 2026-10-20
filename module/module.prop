@@ -3,5 +3,5 @@ name=MemKeep++
 version=v3.3
 versionCode=30300
 author=qvq9999
-description=KernelSU / APatch / Magisk module for memory management, configurable zram, and stronger background app retention. WebUI included.
+description=<b>内存压缩 + 后台保活</b><br>ZRAM 容量/算法自选 · 保活三档 · 内置 WebUI，保存即生效（容量改动需重启）
 updateJson=https://qvq9999.github.io/MemKeep/update.json
