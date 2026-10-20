@@ -28,6 +28,12 @@ UPDATE_JSON = os.path.join(ROOT, "update.json")
 INCLUDE = ["module.prop", "config.conf", "skip_mount", "META-INF", "webroot"]
 INCLUDE_EXT = (".sh",)
 
+# 这些按文本处理：打包时统一把 CRLF 掰回 LF。
+# Windows 上 core.autocrlf=true 的机器检出后是 CRLF，直接压进 zip 会让
+# 模块脚本在开机阶段集体报 "$'\r': not found"，所以这里必须兜一道底。
+TEXT_EXT = (".sh", ".prop", ".conf", ".json", ".html", ".css", ".js", ".md", ".txt")
+TEXT_NAMES = ("module.prop", "config.conf", "skip_mount", "update-binary", "updater-script")
+
 VERSION_RE = re.compile(r"^version=(.+)$", re.M)
 CODE_RE = re.compile(r"^versionCode=(\d+)$", re.M)
 
@@ -66,6 +72,7 @@ def build(version):
     target = os.path.join(DIST_DIR, "MemKeepPlus-%s.zip" % version)
 
     items = collect()
+    fixed = 0
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         for full, rel in items:
             info = zipfile.ZipInfo(rel)
@@ -73,10 +80,17 @@ def build(version):
             info.external_attr = mode << 16          # 关键：让解压后权限正确
             info.compress_type = zipfile.ZIP_DEFLATED
             with open(full, "rb") as f:
-                z.writestr(info, f.read())
+                data = f.read()
+            if rel.endswith(TEXT_EXT) or os.path.basename(rel) in TEXT_NAMES:
+                if b"\r\n" in data:
+                    data = data.replace(b"\r\n", b"\n")
+                    fixed += 1
+            z.writestr(info, data)
 
     size = os.path.getsize(target)
     print("built: %s  (%d files, %.1f KB)" % (os.path.relpath(target, ROOT), len(items), size / 1024))
+    if fixed:
+        print("normalized CRLF -> LF in %d file(s)" % fixed)
     return target
 
 
@@ -94,11 +108,11 @@ def sync_update_json(version, code, repo, zip_name):
     print("update.json -> %s (%d)" % (version, code))
 
 
-def verify():
+def verify(zip_path):
+    problems = []
     with open(UPDATE_JSON, encoding="utf-8") as f:
         data = json.load(f)
     version, code = read_prop()
-    problems = []
     if data.get("version") != version:
         problems.append("update.json version=%r ≠ module.prop version=%r" % (data.get("version"), version))
     if data.get("versionCode") != code:
@@ -106,9 +120,17 @@ def verify():
     for field in ("version", "versionCode", "zipUrl", "changelog"):
         if not data.get(field):
             problems.append("update.json 缺少必填字段 %s" % field)
+
+    # 出包前再验一次：ZIP 里不允许出现 CRLF，否则脚本在设备上必挂
+    with zipfile.ZipFile(zip_path) as z:
+        for name in z.namelist():
+            if name.endswith(TEXT_EXT) or os.path.basename(name) in TEXT_NAMES:
+                if b"\r\n" in z.read(name):
+                    problems.append("ZIP 内 %s 含 CRLF" % name)
+
     if problems:
         sys.exit("校验失败：\n  - " + "\n  - ".join(problems))
-    print("verify ok: update.json 与 module.prop 一致")
+    print("verify ok: update.json 与 module.prop 一致、ZIP 内全为 LF")
 
 
 def main():
@@ -122,8 +144,8 @@ def main():
 
     if args.update_json:
         sync_update_json(version, code, args.repo, zip_name)
-    build(version)
-    verify()
+    target = build(version)
+    verify(target)
 
 
 if __name__ == "__main__":

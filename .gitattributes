@@ -1,0 +1,20 @@
+# 强制全仓库 LF。模块脚本带 \r 会导致 /system/bin/sh 报 "$'\r': not found"，
+# module.prop 带 \r 也会让管理器读不到字段 —— 这是 Android 模块最常见的隐性故障。
+# 本机 core.autocrlf=true，所以必须用 .gitattributes 覆盖掉。
+* text=auto eol=lf
+
+*.sh      text eol=lf
+*.prop    text eol=lf
+*.conf    text eol=lf
+*.json    text eol=lf
+*.md      text eol=lf
+*.yml     text eol=lf
+*.html    text eol=lf
+*.py      text eol=lf
+skip_mount text eol=lf
+update-binary   text eol=lf
+updater-script  text eol=lf
+
+*.png binary
+*.jpg binary
+*.zip binary
