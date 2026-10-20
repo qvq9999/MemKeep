@@ -53,4 +53,23 @@ case "$ROOT_NAME" in
     ui_print "- 图形界面: 模块列表 → MemKeep++ → 打开"
     ;;
 esac
+# 安装时把系统原值存一份，卸载或点「恢复原厂」时用来还原。
+# 这一步必须在模块自己的 service 跑之前执行，这里正是最干净的时机。
+SNAP="$MODPATH/system_snapshot.conf"
+{
+  for k in swappiness watermark_scale_factor min_free_kbytes page-cluster \
+           dirty_ratio dirty_background_ratio compaction_proactiveness overcommit_memory; do
+    v=$(cat "/proc/sys/vm/$k" 2>/dev/null)
+    [ -n "$v" ] && echo "$k=$v"
+  done
+  v=$(cat /sys/block/zram0/disksize 2>/dev/null)
+  [ -n "$v" ] && echo "zram_disksize=$v"
+  v=$(sed -n 's/.*\[\(.*\)\].*/\1/p' /sys/block/zram0/comp_algorithm 2>/dev/null)
+  [ -n "$v" ] && echo "zram_algorithm=$v"
+  v=$(device_config get activity_manager max_cached_processes 2>/dev/null)
+  [ -n "$v" ] && echo "am_cache_max=$v"
+} > "$SNAP" 2>/dev/null
+chmod 0644 "$SNAP" 2>/dev/null
+ui_print "- 已记录系统原值快照，可一键恢复"
+
 ui_print "- 安装完成，重启后生效"

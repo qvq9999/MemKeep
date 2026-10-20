@@ -11,9 +11,14 @@
 #   memkeep.sh keep apply       把名单写成 oom_score_adj
 #   memkeep.sh keep guard       守护循环（阻塞，由 service.sh 后台拉起）
 
-MODDIR=${0%/*}
-[ "$MODDIR" = "$0" ] && MODDIR=.
-MODDIR=${MODDIR%/*}
+# 模块根目录 = 本脚本所在 bin/ 的上一级。
+# 用 case 判断层级，比反复 ${0%/*} 更可靠（相对路径调用时也能算对）。
+case "$0" in
+  */*/*) MODDIR=$(cd "${0%/*}/.." 2>/dev/null && pwd) ;;
+  */*)   MODDIR=$(cd "${0%/*}/.." 2>/dev/null && pwd) ;;
+  *)     MODDIR=$(pwd) ;;
+esac
+[ -d "$MODDIR" ] || MODDIR=${0%/*}
 LIST="$MODDIR/keep_apps.conf"
 CONFIG="$MODDIR/config.conf"
 
@@ -54,21 +59,38 @@ cmd_mem() {
     }
   ' /proc/meminfo 2>/dev/null
 
-  # zram 实际占用与压缩比，没有 zram 就输出 0
-  if [ -r /sys/block/zram0/mem_used ]; then
-    used=$(cat /sys/block/zram0/mem_used 2>/dev/null)
-    orig=$(cat /sys/block/zram0/mm_stat 2>/dev/null | awk '{print $1}')
-    disk=$(cat /sys/block/zram0/disksize 2>/dev/null)
-    echo "zram_used=${used:-0}"
-    echo "zram_orig=${orig:-0}"
-    echo "zram_disk=${disk:-0}"
-    echo "zram_alg=$(cat /sys/block/zram0/comp_algorithm 2>/dev/null | sed -n 's/.*\[\(.*\)\].*/\1/p')"
-  else
-    echo "zram_used=0"
-    echo "zram_orig=0"
-    echo "zram_disk=0"
-    echo "zram_alg="
+  # zram 统计：Android 12+ 的内核**移除了 /sys/block/zram0/mem_used**，
+  # 所有数字都在 mm_stat 里。之前以 mem_used 是否存在做判断，
+  # 在新内核上恒为假，于是整个 zram 区块被跳过、界面全是 0 —— 必须读 mm_stat。
+  #   mm_stat: orig_data_size compr_data_size mem_used ...
+  z=/sys/block/zram0
+  zorig=0; zused=0; zdisk=0; zalg=""
+  if [ -d "$z" ]; then
+    zdisk=$(cat "$z/disksize" 2>/dev/null)
+    if [ -r "$z/mm_stat" ]; then
+      read -r zorig _zcompr zused _rest < "$z/mm_stat" 2>/dev/null
+      [ "${zused:-0}" -gt 0 ] 2>/dev/null || zused=${_zcompr:-0}
+    else
+      zorig=$(cat "$z/orig_data_size" 2>/dev/null)
+      zused=$(cat "$z/mem_used" 2>/dev/null)
+    fi
+    zalg=$(sed -n 's/.*\[\(.*\)\].*/\1/p' "$z/comp_algorithm" 2>/dev/null)
   fi
+  echo "zram_orig=${zorig:-0}"
+  echo "zram_used=${zused:-0}"
+  echo "zram_disk=${zdisk:-0}"
+  echo "zram_alg=$zalg"
+
+  # PSI 内存压力：avg10 是最直观的"现在有多紧"
+  if [ -r /proc/pressure/memory ]; then
+    echo "psi_some=$(awk '/^some/{gsub("avg10=",""); print $2; exit}' /proc/pressure/memory 2>/dev/null)"
+    echo "psi_full=$(awk '/^full/{gsub("avg10=",""); print $2; exit}' /proc/pressure/memory 2>/dev/null)"
+  else
+    echo "psi_some="
+    echo "psi_full="
+  fi
+
+  echo "swaps=$(awk '/^SwapTotal:/{t=$2} /^SwapFree:/{f=$2} END{print (t-f)}' /proc/meminfo 2>/dev/null)"
   echo "procs=$(ps -A 2>/dev/null | wc -l | tr -d ' ')"
 }
 
@@ -233,6 +255,9 @@ cmd_vmset() {
 cmd_vmreset() {
   [ -f "$CONFIG" ] || : > "$CONFIG"
   set_conf_kv VM_CUSTOM false
+  # 手动设过的缓存上限也要一并交还给档位，否则下次开机
+  # apply_background_retention 会继续用旧的 AM_CACHE_MAX 覆盖档位值
+  set_conf_kv AM_CACHE_MAX 0
   echo "OK"
 }
 
@@ -275,6 +300,42 @@ cmd_logs() {
   tail -n "$n" "$f" 2>/dev/null
 }
 
+# 清空日志文件。保留文件本身，避免 service.sh 里的重定向失效。
+cmd_logclear() {
+  f="$MODDIR/memkeep.log"
+  if [ -f "$f" ]; then
+    : > "$f"
+    echo "OK cleared"
+  else
+    echo "OK absent"
+  fi
+}
+
+# 恢复模块默认参数：主配置回默认值，并撤销手动 VM 覆盖。
+# 注意只改模块自己的文件，不动 /proc/sys/vm —— 系统原值由 restore 负责。
+cmd_reset() {
+  [ -f "$CONFIG" ] || : > "$CONFIG"
+  set_conf_kv ZRAM_ENABLE true
+  set_conf_kv ZRAM_SIZE auto
+  set_conf_kv ZRAM_ALGORITHM auto
+  set_conf_kv ZRAM_KEEP_BACKING_DEV true
+  set_conf_kv KEEP_MODE strong
+  set_conf_kv LATE_REAPPLY true
+  set_conf_kv VM_CUSTOM false
+  set_conf_kv AM_CACHE_MAX 0
+  set_conf_kv KEEP_DAEMON true
+  echo "OK"
+}
+
+# 标记卸载：写入 remove 标记，root 管理器会在下次开机移除模块目录。
+cmd_markremove() {
+  gpid=$(cat "$MODDIR/guard.pid" 2>/dev/null)
+  [ -n "$gpid" ] && kill "$gpid" 2>/dev/null
+  rm -f "$MODDIR/guard.pid" 2>/dev/null
+  : > "$MODDIR/remove" 2>/dev/null || { echo "FAIL_WRITE"; return 1; }
+  echo "OK"
+}
+
 # 缓存进程上限（原 device_config 项）。单独成一个子命令，
 # 因为它是 ActivityManager 的配置，不属于 /proc/sys/vm。
 cmd_setcache() {
@@ -301,11 +362,105 @@ cmd_keep_set() {
   [ -f "$LIST" ] || : > "$LIST"
   tmp="$LIST.tmp"
   grep -v "^$pkg[[:space:]]" "$LIST" > "$tmp" 2>/dev/null
-  [ "$tier" != "off" ] && printf '%s %s\n' "$pkg" "$tier" >> "$tmp"
+  if [ "$tier" = "off" ]; then
+    cmd deviceidle whitelist "-$pkg" >/dev/null 2>&1
+    am set-standby-bucket "$pkg" working_set >/dev/null 2>&1
+  else
+    printf '%s %s\n' "$pkg" "$tier" >> "$tmp"
+  fi
   cat "$tmp" > "$LIST"
   rm -f "$tmp"
   chmod 0644 "$LIST" 2>/dev/null
   echo "OK $pkg $tier"
+}
+
+# 输出当前配置（config.conf 的有效键值），供 WebUI 回填。
+# 之前前端只写不读，所以"保存后再进来又变回默认"。
+cmd_config() {
+  [ -f "$CONFIG" ] || return 0
+  grep -vE '^[[:space:]]*(#|$)' "$CONFIG" 2>/dev/null
+}
+
+# 一次性写入高级设置（缓存上限 + 6 个 VM 参数），并立即生效。
+# 顺序：cache swappiness watermark minfree pagecluster dirtyratio compact
+cmd_vmsave() {
+  [ $# -eq 7 ] || { echo "REFUSE_ARGS"; return 1; }
+
+  c=$1; sw=$2; wm=$3; mf=$4; pc=$5; dr=$6; cp=$7
+  for v in "$c" "$sw" "$wm" "$mf" "$pc" "$dr" "$cp"; do
+    case "$v" in ''|*[!0-9]*) echo "REFUSE_INVALID"; return 1 ;; esac
+  done
+  [ "$c"  -ge 64 ]    && [ "$c"  -le 512 ]    || { echo "REFUSE_RANGE cache 64 512"; return 1; }
+  [ "$sw" -ge 0 ]     && [ "$sw" -le 200 ]    || { echo "REFUSE_RANGE swappiness 0 200"; return 1; }
+  [ "$wm" -ge 10 ]    && [ "$wm" -le 400 ]    || { echo "REFUSE_RANGE watermark 10 400"; return 1; }
+  [ "$mf" -ge 32768 ] && [ "$mf" -le 262144 ] || { echo "REFUSE_RANGE minfree 32768 262144"; return 1; }
+  [ "$pc" -ge 0 ]     && [ "$pc" -le 3 ]      || { echo "REFUSE_RANGE pagecluster 0 3"; return 1; }
+  [ "$dr" -ge 5 ]     && [ "$dr" -le 40 ]     || { echo "REFUSE_RANGE dirty 5 40"; return 1; }
+  [ "$cp" -ge 0 ]     && [ "$cp" -le 100 ]    || { echo "REFUSE_RANGE compact 0 100"; return 1; }
+
+  set_conf_kv AM_CACHE_MAX "$c"
+  set_conf_kv VM_CUSTOM true
+  set_conf_kv VM_SWAPPINESS "$sw"
+  set_conf_kv VM_WATERMARK "$wm"
+  set_conf_kv VM_MIN_FREE "$mf"
+  set_conf_kv VM_PAGE_CLUSTER "$pc"
+  set_conf_kv VM_DIRTY_RATIO "$dr"
+  set_conf_kv VM_COMPACT "$cp"
+
+  # 立刻生效，不必等重启
+  device_config put activity_manager max_cached_processes "$c" >/dev/null 2>&1
+  device_config put activity_manager max_phantom_processes "$c" >/dev/null 2>&1
+  for kv in "swappiness=$sw" "watermark_scale_factor=$wm" "min_free_kbytes=$mf" \
+            "page-cluster=$pc" "dirty_ratio=$dr" "compaction_proactiveness=$cp"; do
+    k=${kv%%=*}; v=${kv#*=}
+    [ -e "/proc/sys/vm/$k" ] && { chmod 0644 "/proc/sys/vm/$k" 2>/dev/null; echo "$v" > "/proc/sys/vm/$k" 2>/dev/null; }
+  done
+  echo "OK"
+}
+
+# 已安装的第三方应用。给"从应用列表添加保活"用 ——
+# 之前只能从正在运行的进程里挑，没运行的应用根本选不到。
+cmd_apps() {
+  pm list packages -3 2>/dev/null | sed 's/^package://' | grep -v '^[[:space:]]*$' | sort
+}
+
+# LMK 击杀记录。这是唯一能回答"我的应用到底被谁杀了"的数据源。
+# 原样输出 logcat 行，时间戳解析交给前端。
+cmd_kills() {
+  n="${1:-60}"
+  case "$n" in ''|*[!0-9]*) n=60 ;; esac
+  {
+    logcat -d -b events -t 1500 2>/dev/null | grep -i lmkd
+    logcat -d -b main -t 1500 2>/dev/null | grep -iE "lowmemorykiller|lmkd.*[Kk]ill"
+  } | awk '!seen[$0]++' | tail -n "$n"
+}
+
+# 恢复安装前的系统原值。快照由 customize.sh 在安装时生成。
+cmd_restore() {
+  snap="$MODDIR/system_snapshot.conf"
+  [ -f "$snap" ] || { echo "NO_SNAPSHOT"; return 1; }
+
+  while IFS='=' read -r k v; do
+    case "$k" in ''|\#*) continue ;; esac
+    [ -n "$v" ] || continue
+    case "$k" in
+      swappiness|watermark_scale_factor|min_free_kbytes|page-cluster|dirty_ratio|dirty_background_ratio|compaction_proactiveness|overcommit_memory)
+        path="/proc/sys/vm/$k"
+        [ -e "$path" ] && { chmod 0644 "$path" 2>/dev/null; echo "$v" > "$path" 2>/dev/null; }
+        ;;
+      am_cache_max)
+        device_config delete activity_manager max_cached_processes >/dev/null 2>&1
+        device_config delete activity_manager max_phantom_processes >/dev/null 2>&1
+        ;;
+      *) : ;;
+    esac
+  done < "$snap"
+
+  # 自己的配置也一并归零
+  [ -f "$LIST" ] && : > "$LIST"
+  set_conf_kv VM_CUSTOM false
+  set_conf_kv AM_CACHE_MAX 0
+  echo "OK"
 }
 
 # 找出某个包名对应的所有进程 pid（含 :子进程）。
@@ -338,6 +493,10 @@ cmd_keep_apply() {
     for p in $(pids_of_pkg "$pkg"); do
       echo "$s" > "/proc/$p/oom_score_adj" 2>/dev/null
     done
+    # 只压 oom_score_adj 是"硬扛"；再从系统语义上放行，
+    # 让应用进 active bucket 并豁免 Doze —— 进程万一被回收，通知也不会被掐。
+    am set-standby-bucket "$pkg" active >/dev/null 2>&1
+    cmd deviceidle whitelist "+$pkg" >/dev/null 2>&1
   done
   echo "OK applied"
 }
@@ -365,6 +524,14 @@ case "$1" in
   algs)      cmd_algs ;;
   caps)      cmd_caps ;;
   logs)      cmd_logs "$2" ;;
+  kills)     cmd_kills "$2" ;;
+  apps)      cmd_apps ;;
+  config)    cmd_config ;;
+  vmsave)    shift; cmd_vmsave "$@" ;;
+  restore)   cmd_restore ;;
+  reset)     cmd_reset ;;
+  logclear)  cmd_logclear ;;
+  markremove) cmd_markremove ;;
   setcache)  cmd_setcache "$2" ;;
   keep)
     case "$2" in

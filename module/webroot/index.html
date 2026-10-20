@@ -87,7 +87,9 @@ b,strong{font-weight:600}
 main{padding:0 var(--pad) calc(var(--nav-h) + 28px + env(safe-area-inset-bottom))}
 .view{display:none;animation:fade .22s ease}
 .view.on{display:block}
-#view-tune{padding-bottom:46px}
+/* 保存条是 position:fixed 的两行按钮（约 82px）+ 导航栏 70px，
+   留 96px 才不会被压住最后一行 */
+#view-tune{padding-bottom:96px}
 @keyframes fade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 
 /* ============ topbar ============ */
@@ -143,8 +145,8 @@ html[data-theme="light"] .card{background:var(--s1)}
 /* ============ hero ============ */
 .hero{padding:16px 16px 0;position:relative;overflow:hidden}
 .hero-top{display:flex;align-items:center;gap:16px}
-.ring-wrap{position:relative;width:112px;height:112px;flex:none}
-.ring{width:112px;height:112px;transform:rotate(-90deg)}
+.ring-wrap{position:relative;width:92px;height:92px;flex:none}
+.ring{width:92px;height:92px;transform:rotate(-90deg)}
 .ring .trk{fill:none;stroke:var(--track);stroke-width:11}
 .ring .arc{fill:none;stroke:url(#gRing);stroke-width:11;stroke-linecap:round;filter:drop-shadow(0 0 9px rgba(61,220,151,.38))}
 #gRing .s1{stop-color:var(--ac)}
@@ -154,7 +156,7 @@ html[data-theme="light"] .card{background:var(--s1)}
 #sparkLine{stroke:var(--ac)}
 html[data-theme="light"] .ring .arc{filter:drop-shadow(0 0 7px rgba(15,159,104,.28))}
 .ring-c{position:absolute;inset:0;display:grid;place-content:center;text-align:center;gap:1px}
-.ring-c b{font-size:23px;font-weight:650;letter-spacing:-.8px;line-height:1;font-variant-numeric:tabular-nums}
+.ring-c b{font-size:19px;font-weight:650;letter-spacing:-.6px;line-height:1;font-variant-numeric:tabular-nums}
 .ring-c b i{font-size:11px;font-style:normal;font-weight:600;color:var(--tx2);margin-left:1px}
 .ring-c span{font-size:10.5px;color:var(--tx3);letter-spacing:.3px}
 .hero-info{flex:1;min-width:0}
@@ -163,49 +165,35 @@ html[data-theme="light"] .ring .arc{filter:drop-shadow(0 0 7px rgba(15,159,104,.
 .hero-v b{font-size:31px;font-weight:660;letter-spacing:-1.4px;line-height:1.05;font-variant-numeric:tabular-nums}
 .hero-v span{font-size:13px;font-weight:550;color:var(--tx2)}
 .hero-v em{font-size:11.5px;font-style:normal;color:var(--tx3);margin-left:3px;font-variant-numeric:tabular-nums}
-.spark{height:34px;margin-top:6px;margin-right:-2px}
-.spark svg{width:100%;height:34px;display:block;overflow:visible}
-.hero-stats{display:grid;grid-template-columns:repeat(2,1fr);margin-top:14px;border-top:1px solid var(--line)}
-.hero-stats div{padding:11px 0 13px;text-align:center;position:relative}
-.hero-stats div + div::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:1px;background:var(--line)}
-.hero-stats i{display:block;font-size:11px;color:var(--tx3);font-style:normal;letter-spacing:.2px}
-.hero-stats b{display:block;font-size:14.5px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+.spark{height:26px;margin-top:5px;margin-right:-2px}
+.spark svg{width:100%;height:26px;display:block;overflow:visible}
+.hero-meta{display:flex;align-items:center;gap:16px;margin-top:12px;padding:9px 0 0;border-top:1px solid var(--line)}
+.hero-meta span{font-size:11px;color:var(--tx3);letter-spacing:.2px}
+.hero-meta b{font-size:12.5px;font-weight:600;color:var(--tx);margin-left:3px;font-variant-numeric:tabular-nums;letter-spacing:-.1px}
+.hero-meta b.warn{color:var(--warn)}
 
 /* ============ zram 合并块 ============ */
-.zram-blk{border-top:1px solid var(--line);padding:12px 0 14px}
+.zram-blk{border-top:1px solid var(--line);padding:10px 0 12px}
 .zrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .zt{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;letter-spacing:.5px;color:var(--tx2)}
 .zchip{height:20px;font-size:10px;padding:0 7px;gap:4px}
 .zchip .dot{width:4px;height:4px}
 .zpct{font-size:12px;font-weight:600;color:var(--tx2)}
-.zram-blk .bar{margin:9px 0 7px}
+.zram-blk .bar{margin:8px 0 6px}
 .zmeta{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--tx3);gap:8px}
 .zmeta b{font-weight:600;color:var(--tx2);font-variant-numeric:tabular-nums}
 
-/* ============ zram card（旧，保留给调节页复用） ============ */
-.zram{padding:15px 16px 4px}
+/* ============ zram 区块 ============ */
 .zrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .zrow .t{font-size:13.5px;font-weight:600}
 .bar{height:9px;border-radius:999px;background:var(--track);margin:12px 0 8px;overflow:hidden;position:relative}
 .bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--ac),var(--ac-2));width:38%;box-shadow:0 0 12px -2px var(--ac-line)}
-.bar-lb{display:flex;justify-content:space-between;font-size:11.5px;color:var(--tx3)}
-.bar-lb b{color:var(--tx2);font-weight:550;font-variant-numeric:tabular-nums}
-.zstats{display:grid;grid-template-columns:repeat(3,1fr);margin-top:10px;border-top:1px solid var(--line)}
-.zstats div{padding:10px 0 12px}
-.zstats i{display:block;font-size:11px;color:var(--tx3);font-style:normal}
-.zstats b{display:block;font-size:14px;font-weight:600;margin-top:1px;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
-.zstats b u{text-decoration:none;font-size:10.5px;color:var(--tx3);font-weight:500;margin-left:2px}
-
 /* ============ retention card ============ */
 .ret{padding:15px 16px}
 .ret-top{display:flex;align-items:center;justify-content:space-between}
 .ret-top .t{font-size:13.5px;font-weight:600}
 .ret-line{display:flex;align-items:center;justify-content:space-between;margin-top:11px;font-size:12.5px;color:var(--tx2)}
 .ret-line b{color:var(--tx);font-weight:600;font-variant-numeric:tabular-nums}
-.meter{display:flex;gap:4px;margin-top:12px}
-.meter i{flex:1;height:5px;border-radius:3px;background:var(--s3)}
-.meter i.f{background:linear-gradient(90deg,var(--ac),var(--ac-2))}
-
 /* preset stats */
 .pstats{display:grid;grid-template-columns:repeat(3,1fr);margin-top:13px;border-top:1px solid var(--line)}
 .pstats div{padding:10px 0 0}
@@ -313,7 +301,6 @@ html[data-theme="light"] .ring .arc{filter:drop-shadow(0 0 7px rgba(15,159,104,.
   transition:transform .16s,border-color .16s;
 }
 .quick button:active{transform:scale(.97);border-color:var(--line-strong)}
-.quick button.wide{grid-column:1/-1;justify-content:center}
 .quick .ic{
   width:28px;height:28px;border-radius:9px;display:grid;place-items:center;flex:none;
   background:var(--ac-soft);color:var(--ac);
@@ -322,21 +309,76 @@ html[data-theme="light"] .ring .arc{filter:drop-shadow(0 0 7px rgba(15,159,104,.
 .quick .ic svg{width:15px;height:15px;stroke:currentColor;stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round}
 .quick small{display:block;font-size:10.5px;color:var(--tx3);font-weight:400;margin-top:-1px}
 
-/* ============ insight ============ */
-.insight{
-  display:flex;gap:11px;padding:14px 15px;margin-top:12px;
-  border-radius:18px;border:1px solid var(--ac-line);
-  background:linear-gradient(135deg,var(--ac-soft),transparent 70%),var(--s1);
+/* ============ 进程行 ============ */
+.plist{padding:2px 0 4px}
+.prow{
+  position:relative;display:flex;align-items:center;gap:10px;width:100%;
+  padding:9px 16px;text-align:left;overflow:hidden;
 }
-.insight .ic{width:26px;height:26px;border-radius:8px;background:var(--ac-soft);color:var(--ac);display:grid;place-items:center;flex:none}
-.insight .ic svg{width:14px;height:14px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.insight p{font-size:12.5px;color:var(--tx2);line-height:1.55}
-.insight p b{color:var(--tx);font-weight:600}
-.insight .go{
-  display:inline-flex;align-items:center;gap:3px;margin-top:7px;height:28px;padding:0 11px;
-  border-radius:999px;background:var(--ac);color:#04120c;font-size:11.5px;font-weight:650;
+.prow + .prow{border-top:1px solid var(--line)}
+.prow:active{background:var(--s2)}
+.prow .pbar{
+  position:absolute;left:0;top:0;bottom:0;width:var(--w,0%);
+  background:linear-gradient(90deg,rgba(61,220,151,.12),rgba(61,220,151,.035) 72%,rgba(61,220,151,.008));
+  pointer-events:none;transition:width .4s cubic-bezier(.3,1,.4,1);
 }
-html[data-theme="light"] .insight .go{color:#fff}
+.prow.sys .pbar{background:linear-gradient(90deg,rgba(255,255,255,.06),rgba(255,255,255,.015) 72%,transparent)}
+.prow .pmain{position:relative;z-index:1;flex:1;min-width:0}
+.prow .pmain b{display:flex;align-items:center;gap:4px;font-size:13.5px;font-weight:550;letter-spacing:-.1px;line-height:1.3}
+.prow .pmain b .lk{width:11px;height:11px;stroke:var(--ac);stroke-width:2.4;fill:none;flex:none}
+.prow .pmain i{display:block;font-size:10.5px;color:var(--tx3);font-style:normal;margin-top:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow .prss{position:relative;z-index:1;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;
+  letter-spacing:-.2px;flex:none}
+.prow .prss span{font-size:10px;font-weight:500;color:var(--tx3);margin-left:1px}
+.prow.sys .prss{color:var(--tx2);font-weight:550}
+
+/* ============ 全屏进程面板 ============ */
+.panel{
+  position:fixed;inset:0;z-index:35;background:var(--bg);
+  display:none;flex-direction:column;
+}
+.panel.on{display:flex;animation:panelIn .26s cubic-bezier(.25,1,.4,1)}
+@keyframes panelIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.panel-hd{
+  display:flex;align-items:center;gap:12px;flex:none;
+  padding:calc(14px + env(safe-area-inset-top)) var(--pad) 10px;
+}
+.panel-hd h2{font-size:17px;font-weight:650;letter-spacing:-.3px;flex:1}
+.panel-hd .sub{font-size:11.5px;color:var(--tx3);margin-top:1px;font-weight:400;letter-spacing:0}
+.panel-search{
+  display:flex;align-items:center;gap:8px;margin:0 var(--pad) 10px;flex:none;
+  height:38px;padding:0 12px;border-radius:13px;background:var(--s2);border:1px solid var(--line);
+}
+.panel-search svg{width:15px;height:15px;stroke:var(--tx3);stroke-width:2;fill:none;flex:none}
+.panel-search input{
+  flex:1;min-width:0;border:0;background:none;outline:none;font-size:13.5px;color:var(--tx);
+}
+.panel-search input::placeholder{color:var(--tx3)}
+.panel-filters{display:flex;gap:6px;margin:0 var(--pad) 10px;flex:none;overflow-x:auto;scrollbar-width:none}
+.panel-filters::-webkit-scrollbar{display:none}
+.panel-body{flex:1;overflow-y:auto;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+.panel-foot{
+  flex:none;padding:10px var(--pad) calc(12px + env(safe-area-inset-bottom));
+  font-size:10.5px;color:var(--tx3);text-align:center;line-height:1.5;
+  border-top:1px solid var(--line);background:var(--bg);
+}
+
+/* ============ 多按钮操作弹层 ============ */
+.pdetail{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.pdetail div{padding:9px 10px;border-radius:12px;background:var(--s2);border:1px solid var(--line)}
+.pdetail i{display:block;font-size:10px;color:var(--tx3);font-style:normal;letter-spacing:.2px}
+.pdetail b{display:block;font-size:13px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+.sheet-actions{margin-top:14px;border:1px solid var(--line);border-radius:16px;overflow:hidden;display:none}
+.sheet-actions button{
+  display:flex;align-items:center;justify-content:center;gap:6px;width:100%;height:50px;
+  font-size:14.5px;font-weight:550;color:var(--tx);background:var(--s2);
+}
+.sheet-actions button + button{border-top:1px solid var(--line)}
+.sheet-actions button.danger{color:var(--danger)}
+.sheet-actions button.primary{color:var(--ac)}
+.sheet-actions button:active{background:var(--s3)}
+.sheet.has-actions .btns{display:none}
 
 /* ============ segmented ============ */
 .seg{display:flex;gap:3px;padding:3px;border-radius:13px;background:var(--s2);border:1px solid var(--line)}
@@ -374,9 +416,8 @@ html[data-theme="light"] .seg.accent button.on{background:var(--ac);color:#fff;b
 
 /* chips */
 .chips{display:flex;flex-wrap:wrap;gap:6px}
-.chips.grid{display:grid;grid-template-columns:repeat(4,1fr)}
 .chips.grid4{display:grid;grid-template-columns:repeat(4,1fr)}
-.chips.grid .chip-s,.chips.grid4 .chip-s{justify-content:center;padding:0 2px}
+.chips.grid4 .chip-s{justify-content:center;padding:0 2px}
 
 /* ============ VM 参数面板 ============ */
 .vm-toggle{width:100%;text-align:left;position:relative}
@@ -419,8 +460,6 @@ html[data-theme="light"] .seg.accent button.on{background:var(--ac);color:#fff;b
 .custom-box .step-val span{font-size:11.5px;color:var(--tx3)}
 .range-hint{font-size:10.5px;color:var(--tx3);margin-top:7px;line-height:1.5}
 .range-hint.warn{color:var(--warn)}
-.chips.scroll{flex-wrap:nowrap;overflow-x:auto;margin:0 -16px;padding:0 16px 2px;scrollbar-width:none}
-.chips.scroll::-webkit-scrollbar{display:none}
 .chip-s{
   height:32px;padding:0 12px;border-radius:11px;border:1px solid var(--line);
   background:var(--s2);color:var(--tx2);font-size:12.5px;font-weight:550;
@@ -430,17 +469,8 @@ html[data-theme="light"] .seg.accent button.on{background:var(--ac);color:#fff;b
 .chip-s:disabled{opacity:.38}
 .chip-s u{text-decoration:none;font-size:10px;color:var(--tx3)}
 
-/* range */
-.range-wrap{padding:0 16px 14px}
-input[type=range]{
-  -webkit-appearance:none;appearance:none;width:100%;height:26px;background:transparent;display:block;
-}
-input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:999px;background:linear-gradient(90deg,var(--ac) var(--p,50%),var(--track) var(--p,50%))}
-input[type=range]::-webkit-slider-thumb{
-  -webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:50%;
-  background:#fff;border:2px solid var(--ac);box-shadow:0 2px 8px rgba(0,0,0,.35);
-}
-.range-lb{display:flex;justify-content:space-between;font-size:10.5px;color:var(--tx3);margin-top:2px;font-variant-numeric:tabular-nums}
+/* 参数调整统一用步进器（.custom-box），不再有滑块 */
+
 
 /* preset summary */
 .preset{padding:14px 15px}
@@ -483,17 +513,14 @@ input[type=range]::-webkit-slider-thumb{
   font-size:12px;font-weight:550;color:var(--tx2);
 }
 .about-link svg{width:12px;height:12px;stroke:currentColor;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round}
-.kv{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;font-size:13px}
+.kv{display:flex;align-items:flex-start;gap:14px;padding:11px 16px;font-size:13px}
 .kv + .kv{border-top:1px solid var(--line)}
-.kv span{color:var(--tx2)}
-.kv b{font-weight:550;font-variant-numeric:tabular-nums;color:var(--tx)}
-.cap{display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:13px}
-.cap + .cap{border-top:1px solid var(--line)}
-.cap .n{flex:1;color:var(--tx2)}
-.cap .s{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px}
-.cap .s.y{color:var(--ac);background:var(--ac-soft)}
-.cap .s.n{color:var(--tx2);background:var(--s2)}
-.cap .s.w{color:var(--warn);background:var(--warn-soft)}
+/* 标签不允许被压缩 —— 内核版本这类长字符串曾把"内核"挤成竖排 */
+.kv span{flex:none;color:var(--tx2);white-space:nowrap;line-height:1.45}
+.kv b{flex:1;min-width:0;text-align:right;font-weight:550;color:var(--tx);line-height:1.45;
+  word-break:break-all;font-variant-numeric:tabular-nums}
+/* 内核版本这类超长串：小一号 + 收紧字距，尽量一行放下；实在放不下再折行 */
+.kv b.tight{font-size:11.5px;letter-spacing:-.2px;word-break:break-word}
 .danger-zone{padding:4px 0 6px}
 .danger-zone button{
   display:flex;align-items:center;justify-content:space-between;width:100%;
@@ -581,6 +608,33 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   opacity:0;pointer-events:none;transition:all .26s;z-index:50;white-space:nowrap;max-width:88vw;
 }
 .toast.on{opacity:1;transform:translate(-50%,0)}
+/* ============ 应用选择面板 ============ */
+.arow{
+  display:flex;align-items:center;gap:10px;width:100%;padding:13px 16px;text-align:left;
+  border-bottom:1px solid var(--line);background:transparent;
+}
+.arow:last-child{border-bottom:none}
+.arow .am{flex:1;min-width:0}
+.arow .am b{
+  display:block;font-size:13.5px;font-weight:550;color:var(--tx);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.arow .am i{
+  display:block;font-size:11.5px;color:var(--tx3);font-style:normal;margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.arow .tag2{
+  flex:none;font-size:10.5px;padding:2px 7px;border-radius:6px;font-weight:600;
+  background:var(--ac-soft);color:var(--ac);border:1px solid var(--ac-line);
+}
+.arow .tag2.re{background:var(--s2);color:var(--tx2);border-color:var(--line)}
+.arow .tag2.off{background:transparent;color:var(--tx3);border-color:var(--line)}
+
+/* 击杀记录：和模块日志区分开，用告警色左轨 */
+.log.kill .rail i{background:var(--warn)}
+.log.kill .tag{color:var(--warn);border-color:rgba(255,176,32,.35);background:rgba(255,176,32,.1)}
+.log.kill .msg{color:var(--tx)}
+.log.kill .msg em{font-style:normal;color:var(--warn);font-weight:600}
 </style>
 </head>
 <body>
@@ -643,9 +697,10 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
             </div>
           </div>
         </div>
-        <div class="hero-stats">
-          <div><i>可用</i><b class="num" id="memAvail">—</b></div>
-          <div><i>缓存</i><b class="num" id="memCached">—</b></div>
+        <div class="hero-meta">
+          <span>可用<b id="memAvail">—</b></span>
+          <span>缓存<b id="memCached">—</b></span>
+          <span>内存压力<b id="psiSome">—</b></span>
         </div>
 
         <div class="zram-blk">
@@ -677,21 +732,13 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
       <div class="card ret">
         <div class="ret-top">
           <div class="t">后台保活</div>
-          <span class="chip" style="height:24px;font-size:11px;color:var(--ac);border-color:var(--ac-line);background:var(--ac-soft)">增强</span>
+          <span class="chip" id="keepModeChip" style="height:24px;font-size:11px;color:var(--ac);border-color:var(--ac-line);background:var(--ac-soft)">—</span>
         </div>
         <div class="ret-line"><span>保护中应用</span><b class="num" id="keptCount">—</b></div>
         <div class="ret-line"><span>守护进程</span><b style="font-weight:550" id="guardState">—</b></div>
+        <button class="more-btn" data-action="openapps">添加保活应用<svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
       </div>
 
-      <div class="insight">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V16h8v-1.3A7 7 0 0 0 12 2Z"/></svg></span>
-        <div>
-          <p>容量 <b>auto</b> 在本机被钳制为 <b>8.0 GB</b>（物理内存 12 GB）。改为 <b>12 GB</b> 可多容纳约 4 GB 压缩页，适合重负载多开。</p>
-          <button class="go" data-action="suggest">改用 12 GB
-            <svg viewBox="0 0 24 24" style="width:11px;height:11px;stroke:currentColor;stroke-width:2.6;fill:none;stroke-linecap:round;stroke-linejoin:round"><path d="m9 6 6 6-6 6"/></svg>
-          </button>
-        </div>
-      </div>
     </section>
 
     <!-- ================= 调节 ================= -->
@@ -744,7 +791,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
         </div>
         <div class="row">
           <div class="txt"><strong>保留 backing device</strong><small>原 zram 存在后端设备时予以保留</small></div>
-          <label class="sw"><input type="checkbox" checked><i></i></label>
+          <label class="sw"><input type="checkbox" id="swBacking" checked><i></i></label>
         </div>
       </div>
 
@@ -752,7 +799,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
       <div class="card grp">
         <div class="row">
           <div class="txt"><strong>延迟重应用</strong><small>开机稳定 90 秒后补一次关键参数</small></div>
-          <label class="sw"><input type="checkbox" checked><i></i></label>
+          <label class="sw"><input type="checkbox" id="swLate" checked><i></i></label>
         </div>
       </div>
 
@@ -775,6 +822,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
         <button class="chip-s" data-filter="vm">VM</button>
         <button class="chip-s" data-filter="bg">保活</button>
         <button class="chip-s" data-filter="err">异常</button>
+        <button class="chip-s" data-filter="kill">击杀 <u>0</u></button>
       </div>
       <div class="card loglist" id="logList"></div>
       <div class="logfoot" id="logFoot"></div>
@@ -793,7 +841,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     <!-- ================= 关于 ================= -->
     <section class="view" id="view-about">
       <div class="card about-hd">
-        <div class="v"><h3 class="num">v3.1</h3><span class="chip ok" style="height:23px;font-size:11px">已是最新</span></div>
+        <div class="v"><h3 class="num">v3.2</h3><span class="chip ok" style="height:23px;font-size:11px">已是最新</span></div>
         <p>内核级内存管理模块：重建 ZRAM 压缩交换区、调整 VM 水位与 LMKD 策略，让后台应用留得更久。</p>
         <button class="about-link" data-action="update"><span id="updLabel">检查更新</span>
           <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
@@ -805,18 +853,8 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
         <div class="kv"><span>机型</span><b id="devModel">读取中…</b></div>
         <div class="kv"><span>物理内存</span><b class="num" id="devRam">—</b></div>
         <div class="kv"><span>系统</span><b id="devOs">—</b></div>
-        <div class="kv"><span>内核</span><b class="num" id="devKernel">—</b></div>
+        <div class="kv"><span>内核</span><b class="tight" id="devKernel">—</b></div>
         <div class="kv"><span>Root 方案</span><b id="devRoot">—</b></div>
-      </div>
-
-      <div class="sect"><h2>能力检测</h2><span class="more">按本机内核实测</span></div>
-      <div class="card" id="capList">
-        <div class="cap"><span class="n">zram0 设备</span><span class="s n" data-cap="zram">检测中</span></div>
-        <div class="cap"><span class="n">可用压缩算法</span><span class="s n" data-cap="alg">检测中</span></div>
-        <div class="cap"><span class="n">多级重压缩 (recompress)</span><span class="s n" data-cap="recompress">检测中</span></div>
-        <div class="cap"><span class="n">writeback 回写</span><span class="s n" data-cap="writeback">检测中</span></div>
-        <div class="cap"><span class="n">MGLRU 多代 LRU</span><span class="s n" data-cap="mglru">检测中</span></div>
-        <div class="cap"><span class="n">主动内存规整</span><span class="s n" data-cap="compact">检测中</span></div>
       </div>
 
       <div class="sect"><h2>设置</h2></div>
@@ -849,7 +887,8 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
 
       <div class="sect"><h2>危险操作</h2></div>
       <div class="card danger-zone">
-        <button data-action="reset"><span>恢复出厂参数</span><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+        <button data-action="restore"><span>恢复系统原值（安装前）</span><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+        <button data-action="reset"><span>恢复模块默认参数</span><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
         <button data-action="uninstall"><span>卸载模块（重启后生效）</span><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
       </div>
     </section>
@@ -903,12 +942,38 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   <div class="panel-foot" id="procFoot">系统进程不提供停止操作</div>
 </div>
 
+<!-- ================= 应用选择面板（加保活） ================= -->
+<div class="panel" id="appPanel">
+  <div class="panel-hd">
+    <div style="flex:1">
+      <h2>添加保活应用</h2>
+      <div class="sub" id="appPanelSub">读取已安装应用…</div>
+    </div>
+    <button class="icon-btn" data-action="closeapps" aria-label="关闭">
+      <svg viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    </button>
+  </div>
+  <div class="panel-search">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="appSearch" placeholder="搜索应用名或包名" autocomplete="off">
+  </div>
+  <div class="panel-filters" id="appFilters">
+    <button class="chip-s on" data-afilter="all">全部</button>
+    <button class="chip-s" data-afilter="kept">保护中</button>
+    <button class="chip-s" data-afilter="free">未保护</button>
+  </div>
+  <div class="panel-body">
+    <div class="plist" id="appList"></div>
+  </div>
+  <div class="panel-foot" id="appFoot"></div>
+</div>
+
 <div class="scrim" id="scrim"></div>
 <div class="sheet" id="sheet">
   <div class="grip"></div>
-  <h4 id="sheetTitle">重建 ZRAM 分区？</h4>
-  <div id="sheetBody"><p>将执行 swapoff → reset → 重新设置容量与算法 → mkswap → swapon。整个过程中压缩交换区会短暂不可用，系统可能在此期间回收部分后台进程。</p></div>
-  <div class="warnbox" id="sheetWarn">建议在息屏或空闲时执行；如需恢复默认值，请在「关于 → 恢复出厂参数」中操作。</div>
+  <h4 id="sheetTitle"></h4>
+  <div id="sheetBody"></div>
+  <div class="warnbox" id="sheetWarn"></div>
   <div class="sheet-actions" id="sheetActions"></div>
   <div class="btns">
     <button class="ghost" id="sheetCancel">取消</button>
@@ -961,66 +1026,50 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   }
 
   /* ---------------- 设备与能力 ---------------- */
-  function setCap(key, ok, text){
-    const el = document.querySelector('[data-cap="' + key + '"]');
-    if(!el) return;
-    el.className = 's ' + (ok === true ? 'y' : ok === false ? 'n' : 'w');
-    el.textContent = text;
-  }
-
-  async function loadCaps(){
+  async function loadDevice(){
     if(!hasKsu()){
       if(DEMO){
-        fillCaps({ model:'realme GT7 Pro', android:'15', sdk:'35', kernel:'6.6.56-android15',
-                   root:'KernelSU', zram:'1', recompress:'1', writeback:'0', mglru:'1', compact:'1', guard:'1' });
+        fillDevice({ model:'realme GT7 Pro', android:'15', sdk:'35',
+                     kernel:'6.6.56-android15-8-g7f3a2b1c2d3e-ab1234567', root:'KernelSU', guard:'1' });
       }else{
-        ['devModel','devOs','devKernel','devRoot'].forEach(id=>{ const el=$('#'+id); if(el) el.textContent='读取失败'; });
-        ['zram','alg','recompress','writeback','mglru','compact'].forEach(k=>setCap(k, null, '未知'));
+        ['devModel','devOs','devKernel','devRoot'].forEach(id=>{
+          const el = $('#' + id); if(el) el.textContent = '读取失败';
+        });
+        const gs = $('#guardState');
+        if(gs) gs.textContent = '—';
       }
       return;
     }
     try{
-      const out = await exec('sh ' + shq(MEMKEEP) + ' caps');
+      const out = await shell('caps');
       const m = {};
       String(out).trim().split(/\r?\n/).forEach(l => {
         const i = l.indexOf('=');
         if(i > 0) m[l.slice(0, i)] = l.slice(i + 1).trim();
       });
-      fillCaps(m);
-    }catch(e){}
+      fillDevice(m);
+    }catch(e){ console.warn('[device]', e && (e.message || e)); }
   }
 
-  function fillCaps(m){
+  function fillDevice(m){
     const set = (id, v)=>{ const el = $('#' + id); if(el) el.textContent = v; };
     set('devModel', m.model || '未知');
     set('devOs', (m.android ? 'Android ' + m.android : '未知') + (m.sdk ? ' · SDK ' + m.sdk : ''));
     set('devKernel', m.kernel || '未知');
     set('devRoot', m.root || '未知');
-    const ram = $('#devRam');
-    if(ram && (!ram.textContent || ram.textContent === '—')) ram.textContent = RAM_GB.toFixed(1) + ' GB';
+    // 物理内存由 loadMem 填真实值；这里不兜底，免得给出一个猜出来的数字
+
 
     const gs = $('#guardState');
     if(gs){
       gs.textContent = m.guard === '1' ? '运行中' : '未运行';
       gs.style.color = m.guard === '1' ? 'var(--ac)' : 'var(--tx3)';
     }
-    const yes = v => v === '1';
-    setCap('zram', yes(m.zram), yes(m.zram) ? '可用' : '缺失');
-    setCap('recompress', yes(m.recompress), yes(m.recompress) ? '可用' : '不支持');
-    setCap('writeback', yes(m.writeback), yes(m.writeback) ? '可用' : '不支持');
-    setCap('mglru', yes(m.mglru) ? true : null, yes(m.mglru) ? '可用' : '不支持');
-    setCap('compact', yes(m.compact), yes(m.compact) ? '可用' : '不支持');
-    const algEl = document.querySelector('[data-cap="alg"]');
-    if(algEl){
-      const n = algSupported.length;
-      algEl.className = 's ' + (n ? 'y' : 'n');
-      algEl.textContent = n ? (n + ' 种 · ' + algSupported.slice(0, 3).join('/')) : '无';
-    }
   }
 
   /* ---------------- 在线更新 ---------------- */
   // 版本源：与 module.prop 的 versionCode 同编码（MAJOR*10000 + MINOR*100 + PATCH）
-  const APP = {version:'v3.1', code:30100};
+  const APP = {version:'v3.2', code:30200};
   const UPD_REPO = 'qvq9999/MemKeep';
   // jsDelivr 有多个边缘域名，国内经常只有其中一两个可用（实测 cdn 整段不通、gcore 正常），
   // 所以并发打四个，谁先成功用谁。raw.githubusercontent 作为最后兜底。
@@ -1127,12 +1176,23 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   async function detectBridge(){
     if(DEMO){ BRIDGE_STATE = 'demo'; return; }
     if(!ksuApi()){ BRIDGE_STATE = 'no-body'; return; }
+
+    // 每个模式只等 2.2s。四种模式串行最多 9s，再长用户就会以为界面卡死。
+    // （实测过：超时给 5s 时，签名不匹配的模式会让首屏空等 15s 才落到"未连接"）
+    let weak = null;
     for(const m of ['name', 'fn3', 'fn2', 'promise']){
       try{
-        const out = await execRaw(m, 'echo __mk_probe__', 5000);
-        if(String(out).indexOf('__mk_probe__') >= 0){ EXEC_MODE = m; BRIDGE_STATE = 'ok'; return; }
+        const out = await execRaw(m, 'echo __mk_probe__', 2200);
+        if(String(out).indexOf('__mk_probe__') >= 0){
+          EXEC_MODE = m; BRIDGE_STATE = 'ok'; return;
+        }
+        // 回调确实被调用了（没超时），但输出是空的。可能是宿主把 stdout 吞了，
+        // 也可能是这个签名只是"能调用"。先记下来，四轮都没拿到标记时用它兜底，
+        // 总比让界面一直停在"读取中"强。
+        if(weak === null) weak = m;
       }catch(e){}
     }
+    if(weak){ EXEC_MODE = weak; BRIDGE_STATE = 'ok'; return; }
     BRIDGE_STATE = 'fail';
   }
 
@@ -1234,6 +1294,10 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     });
     $('#saveBar').classList.toggle('show', name === 'tune');
     window.scrollTo(0,0);
+    // 切页时补一次数据：日志和关于页的数据只在需要时才拉，避免开机时拖慢首屏
+    if(name === 'logs' && (BRIDGE_STATE === 'ok' || BRIDGE_STATE === 'demo')) loadLogs();
+    if(name === 'about' && (BRIDGE_STATE === 'ok' || BRIDGE_STATE === 'demo')) loadDevice();
+    if(name === 'monitor' && (BRIDGE_STATE === 'ok' || BRIDGE_STATE === 'demo')) loadMem();
   }
   $('#tabbar').addEventListener('click', e=>{
     const b = e.target.closest('button[data-tab]');
@@ -1275,11 +1339,13 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
       $$('#presetSeg button').forEach(x=>x.classList.toggle('on', x.dataset.preset === 'custom'));
       const d = $('#presetDesc');
       if(d) d.textContent = '已手动微调 VM 参数：这些值不再跟随档位，点回均衡/增强/极限可恢复。';
+      paintModeChip('custom');
       return;
     }
 
     const p = PRESETS[key];
     if(!p) return;
+    paintModeChip(key);
     if(customBtn) customBtn.hidden = true;
     $$('#presetSeg button').forEach(x=>x.classList.toggle('on', x.dataset.preset === key));
     $('#presetDesc').textContent = p.desc;
@@ -1287,6 +1353,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     $('#pCache').textContent = p.cache;
     $('#pWm').textContent = p.wm;
     // 选回档位时，VM 与缓存上限的手动覆盖一并失效
+    currentMode = key;          // 保存时要写回 KEEP_MODE，不记就会写错档
     vmCustomKeys = {};
     vmValues = Object.assign({}, VM_PRESET[key] || VM_PRESET.strong);
     vmValues['max_cached_processes'] = String(p.cache);
@@ -1303,14 +1370,22 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   // 安全范围按物理内存推：下限 2 GB（再小 zram 没意义），上限物理内存 ×2 且不超过 32 GB。
   // zram 的 disksize 只是「上限」，不会立即占用内存，所以略超物理内存是允许的；
   // 但设太大容易把正在用的页压进慢速交换，反而卡，因此超过物理内存时给黄色提示。
-  const RAM_GB = 11.7;
+  // 物理内存由 loadMem 用 /proc/meminfo 的真实 MemTotal 填。
+  // 之前写死 11.7 —— 在 8 GB 机上会算出错误的容量上限，也属于假数据。
+  let RAM_GB = 0;
+  function ramGb(){ return RAM_GB > 0 ? RAM_GB : 0; }
+  function sizeMax(){ return Math.min(32, Math.max(4, Math.floor((ramGb() || 8) * 2))); }
   const SIZE_MIN = 2;
-  const SIZE_MAX = Math.min(32, Math.floor(RAM_GB * 2));
+  // 上限按真实内存算：最多 2 倍物理内存，且不超过 32 GB
   let zramSize = { mode: 'auto', custom: 12 };
 
   function sizeLabel(){
     if(zramSize.mode === 'custom') return zramSize.custom + ' GB';
-    if(zramSize.mode === 'auto') return 'auto · 8.0 GB';
+    if(zramSize.mode === 'auto'){
+      // auto = 取物理内存并钳制在 8–16 GB，和 tools.sh 的 calc_zram_bytes 一致
+      if(!ramGb()) return 'auto';
+      return 'auto · ' + Math.min(16, Math.max(8, Math.round(ramGb()))) + ' GB';
+    }
     return zramSize.mode.replace('G', ' GB');
   }
 
@@ -1327,18 +1402,18 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     const minus = $('.custom-box .step[data-step="-1"]');
     const plus = $('.custom-box .step[data-step="1"]');
     if(minus) minus.disabled = zramSize.custom <= SIZE_MIN;
-    if(plus) plus.disabled = zramSize.custom >= SIZE_MAX;
+    if(plus) plus.disabled = zramSize.custom >= sizeMax();
 
     const v = $('#zramSizeVal');
     if(v) v.textContent = sizeLabel();
 
     const hint = $('#sizeHint');
     if(hint){
-      const over = zramSize.mode === 'custom' && zramSize.custom > Math.floor(RAM_GB);
+      const over = zramSize.mode === 'custom' && ramGb() > 0 && zramSize.custom > Math.floor(ramGb());
       hint.textContent = zramSize.mode === 'custom'
         ? (over
-            ? zramSize.custom + ' GB 已超过物理内存 ' + RAM_GB + ' GB，压缩页可能被频繁换出，建议不超过 ' + Math.floor(RAM_GB) + ' GB'
-            : '范围 ' + SIZE_MIN + '–' + SIZE_MAX + ' GB · 当前约占物理内存的 ' + Math.round(zramSize.custom / RAM_GB * 100) + '%')
+            ? zramSize.custom + ' GB 已超过物理内存 ' + ramGb().toFixed(1) + ' GB，压缩页可能被频繁换出，建议不超过 ' + Math.floor(ramGb()) + ' GB'
+            : '范围 ' + SIZE_MIN + '–' + sizeMax() + ' GB · 当前约占物理内存的 ' + Math.round(zramSize.custom / ramGb() * 100) + '%')
         : '开机按配置重建压缩交换区 · auto 会取物理内存并钳制在 8–16 GB';
       hint.classList.toggle('warn', over);
     }
@@ -1347,13 +1422,13 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   function setZramSize(mode, custom, silent){
     if(mode === 'custom'){
       zramSize.mode = 'custom';
-      if(typeof custom === 'number') zramSize.custom = Math.max(SIZE_MIN, Math.min(SIZE_MAX, Math.round(custom)));
+      if(typeof custom === 'number') zramSize.custom = Math.max(SIZE_MIN, Math.min(sizeMax(), Math.round(custom)));
     }else{
       zramSize.mode = mode;
       // 选了 12G 这类预设时，把数字同步给自定义步进器 ——
       // 之后点「自定义」应该从当前值接着调，而不是跳回一个不相干的默认值
       const m = /^(\d+)G$/.exec(mode);
-      if(m) zramSize.custom = Math.max(SIZE_MIN, Math.min(SIZE_MAX, +m[1]));
+      if(m) zramSize.custom = Math.max(SIZE_MIN, Math.min(sizeMax(), +m[1]));
     }
     renderZramSize();
     if(!silent) markDirty();
@@ -1425,7 +1500,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
         });
         if(m.list) algSupported = m.list.split(/\s+/).filter(Boolean);
         if(m.current) algActive = m.current;
-      }catch(e){}
+      }catch(e){ console.warn('[algs]', e && (e.message || e)); }
     }else if(DEMO){
       algSupported = ['zstd', 'lz4', 'lz4hc', 'lzo-rle', 'deflate'];
       algActive = 'zstd';
@@ -1511,13 +1586,14 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     $$('#presetSeg button').forEach(b => b.classList.toggle('on', b.dataset.preset === 'custom'));
     const desc = $('#presetDesc');
     if(desc) desc.textContent = '已手动微调 VM 参数：这些值不再跟随档位，点回均衡/增强/极限可恢复。';
+    paintModeChip('custom');
   }
 
   function syncPstats(){
     const sw = $('#pSw'), ca = $('#pCache'), wm = $('#pWm');
     if(sw) sw.textContent = vmValues['swappiness'] != null ? vmValues['swappiness'] : '—';
     if(wm) wm.textContent = vmValues['watermark_scale_factor'] != null ? vmValues['watermark_scale_factor'] : '—';
-    if(ca) ca.textContent = $('#cacheVal') ? $('#cacheVal').textContent : '—';
+    if(ca) ca.textContent = vmValues['max_cached_processes'] != null ? vmValues['max_cached_processes'] : '—';
   }
 
   function openVmEdit(def){
@@ -1570,6 +1646,12 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   }
 
   // 只把选中态/描述/数字同步过去，不动滑动条与 vmValues，避免多余副作用
+  const MODE_NAME = { balanced:'均衡', strong:'增强', max:'极限', custom:'自定义' };
+  function paintModeChip(key){
+    const el = $('#keepModeChip');
+    if(el) el.textContent = MODE_NAME[key] || '—';
+  }
+
   function reflectPreset(key){
     const seg = $('#presetSeg');
     const customBtn = seg ? seg.querySelector('[data-preset="custom"]') : null;
@@ -1642,7 +1724,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
         if(i > 0) m[l.slice(0, i)] = l.slice(i + 1);
       });
       if(Object.keys(m).length) vmValues = m;
-    }catch(e){}
+    }catch(e){ console.warn('[vms]', e && (e.message || e)); }
     renderVmList();
   }
 
@@ -1659,13 +1741,115 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     $('#saveSub').textContent = dirtyCount + ' 项修改未应用';
   }
 
-  $('#saveBtn').addEventListener('click', ()=>{
-    const btn = $('#saveBtn');
-    dirtyCount = 0;
-    $('#saveSub').textContent = '已写入 config.conf';
-    toast('配置已保存并应用');
-    setTimeout(()=>{ $('#saveSub').textContent = 'VM 与保活立即生效 · ZRAM 需重启'; }, 2200);
-  });
+  // 保存：先写主配置，再按当前档位/自定义写高级设置。
+  // 之前这里只弹了个 toast —— 一个字节都没落盘，所以"保存后重进又是默认值"。
+  async function saveAll(){
+    const cfg = {
+      ZRAM_ENABLE: $('#swZram') && $('#swZram').checked ? 'true' : 'false',
+      ZRAM_SIZE: zramSize.mode === 'custom' ? (zramSize.custom + 'G') : zramSize.mode,
+      ZRAM_ALGORITHM: algCurrent,
+      ZRAM_KEEP_BACKING_DEV: $('#swBacking') && $('#swBacking').checked ? 'true' : 'false',
+      KEEP_MODE: (vmCustomKeys && Object.keys(vmCustomKeys).length) ? (currentMode || 'strong') : (currentMode || 'strong'),
+      LATE_REAPPLY: $('#swLate') && $('#swLate').checked ? 'true' : 'false'
+    };
+
+    if(!hasKsu()){
+      dirtyCount = 0;
+      $('#saveSub').textContent = '未连接模块，无法写入';
+      toast('未连接模块环境，配置未写入');
+      return;
+    }
+
+    $('#saveSub').textContent = '写入中…';
+    try{
+      const args = ['sh', shq(MODDIR + '/save_config.sh'),
+        shq(cfg.ZRAM_ENABLE), shq(cfg.ZRAM_SIZE), shq(cfg.ZRAM_ALGORITHM),
+        shq(cfg.ZRAM_KEEP_BACKING_DEV), shq(cfg.KEEP_MODE), shq(cfg.LATE_REAPPLY)].join(' ');
+      const out = await exec(args, 20000);
+      if(!/ZRAM_ENABLE=/.test(String(out))) throw new Error('no config echoed');
+
+      // 高级设置：自定义过就整组写入，否则恢复跟随档位
+      if(Object.keys(vmCustomKeys).length){
+        const v = k => String(vmValues[k] || 0);
+        const cmd = 'vmsave ' + [v('max_cached_processes'), v('swappiness'), v('watermark_scale_factor'),
+          v('min_free_kbytes'), v('page-cluster'), v('dirty_ratio'), v('compaction_proactiveness')].join(' ');
+        const r = await shell(cmd, 20000);
+        if(!/^OK/.test(String(r).trim())) throw new Error(String(r).trim());
+      }else{
+        await shell('vmreset', 10000);
+      }
+
+      dirtyCount = 0;
+      $('#saveSub').textContent = '已写入 config.conf';
+      toast('已保存 · ZRAM 变更重启后生效');
+      setTimeout(()=>{ $('#saveSub').textContent = 'VM 与保活立即生效 · ZRAM 需重启'; }, 2400);
+    }catch(e){
+      $('#saveSub').textContent = '保存失败';
+      toast('保存失败：' + (e && e.message ? e.message : '未知错误'));
+    }
+  }
+  $('#saveBtn').addEventListener('click', saveAll);
+
+  // 回读配置：之前前端只写不读，所以每次进来都回到默认值
+  let currentMode = 'strong';
+  async function loadConfig(){
+    if(!hasKsu()){
+      if(DEMO){
+        currentMode = 'strong';
+        vmValues['max_cached_processes'] = '256';
+        applyPreset('strong', true);
+        renderZramSize();
+        renderAlgs();
+        renderVmList();
+      }
+      return;
+    }
+    try{
+      const out = await shell('config', 15000);
+      const m = {};
+      String(out).trim().split(/\r?\n/).forEach(l => {
+        const i = l.indexOf('=');
+        if(i > 0) m[l.slice(0, i)] = l.slice(i + 1).trim();
+      });
+
+      if($('#swZram')) $('#swZram').checked = m.ZRAM_ENABLE !== 'false';
+      if($('#swBacking')) $('#swBacking').checked = m.ZRAM_KEEP_BACKING_DEV !== 'false';
+      if($('#swLate')) $('#swLate').checked = m.LATE_REAPPLY !== 'false';
+
+      const size = m.ZRAM_SIZE || 'auto';
+      if(size === 'auto'){ zramSize.mode = 'auto'; }
+      else if(/^\d+G$/i.test(size)){ zramSize.mode = size.toUpperCase(); zramSize.custom = parseInt(size, 10); }
+      else{ const n = parseInt(size, 10); zramSize.mode = 'custom'; zramSize.custom = n > 0 ? n : 12; }
+      renderZramSize();
+
+      if(m.ZRAM_ALGORITHM){ algCurrent = m.ZRAM_ALGORITHM; renderAlgs(); }
+
+      currentMode = m.KEEP_MODE || 'strong';
+      if(vmCustomKeys && Object.keys(vmCustomKeys).length === 0){
+        // VM 手动覆盖的情况下面单独处理
+        if(m.VM_CUSTOM !== 'true') applyPreset(currentMode, true);
+      }
+
+      if(m.VM_CUSTOM === 'true'){
+        const map = {
+          'max_cached_processes': m.AM_CACHE_MAX,
+          'swappiness': m.VM_SWAPPINESS,
+          'watermark_scale_factor': m.VM_WATERMARK,
+          'min_free_kbytes': m.VM_MIN_FREE,
+          'page-cluster': m.VM_PAGE_CLUSTER,
+          'dirty_ratio': m.VM_DIRTY_RATIO,
+          'compaction_proactiveness': m.VM_COMPACT
+        };
+        Object.keys(map).forEach(k=>{ if(map[k] != null) vmValues[k] = map[k]; });
+        vmCustomKeys = {};
+        Object.keys(map).forEach(k=>{ if(map[k] != null) vmCustomKeys[k] = true; });
+        enterCustomMode();
+        syncPstats();
+        renderVmList();
+      }
+      renderZramSize();
+    }catch(e){ console.warn('[config]', e && (e.message || e)); }
+  }
 
   /* ---------------- 日志 ---------------- */
   // 读 module 目录下的 memkeep.log，每行形如 "[2026-10-20 17:12:03] xxx"。
@@ -1700,60 +1884,106 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     return out;
   }
 
-  const lvClass = { ok:'ok', warn:'warn', err:'err', info:'' };
+  const lvClass = { ok:'ok', warn:'warn', err:'err', info:'', kill:'kill' };
+
+  // LMK 击杀记录。这是唯一能回答「我的应用到底被谁杀了」的数据源，
+  // 数据来自 logcat -b events（lmkd / lowmemorykiller 两条来源在后端合并）。
+  let KILLS = [];
+
+  function parseKills(text){
+    const out = [];
+    String(text || '').split(/\r?\n/).forEach(line => {
+      const t = line.trim();
+      if(!t) return;
+      // 10-20 20:15:33.123  1234  1250 I lmkd: Kill 'com.foo' (1234), uid 10123, oom_score_adj 900 to free 23456kB
+      const m = /(\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})\.\d+.*?Kill '([^']+)'(?:.*?oom_score_adj\s+(-?\d+))?(?:.*?to free (\d+)\s*kB)?/i.exec(t);
+      if(!m) return;
+      const clock = m[2], pkg = m[3], adj = m[4], freed = m[5];
+      let msg = (LABELS[pkg] || pkg) + (LABELS[pkg] ? ' (' + pkg + ')' : '');
+      if(adj != null) msg += ' · oom ' + adj;
+      if(freed) msg += ' · 释放 ' + Math.round(+freed / 1024) + ' MB';
+      out.push({ t: clock, lv: 'kill', tag: 'KILL', msg: msg });
+    });
+    return out;
+  }
 
   function renderLogs(filter){
     if(filter) logFilter = filter;
     const box = $('#logList');
     if(!box) return;
 
-    const list = LOGS.filter(l => {
-      if(logFilter === 'all') return true;
-      if(logFilter === 'err') return l.lv === 'warn' || l.lv === 'err';
-      const map = { zram:'ZRAM', vm:'VM', bg:'BG' };
-      return l.tag === map[logFilter];
-    }).slice().reverse();   // 新的在上
+    let list;
+    if(logFilter === 'kill'){
+      list = KILLS.slice();
+    }else{
+      list = LOGS.filter(l => {
+        if(logFilter === 'all') return true;
+        if(logFilter === 'err') return l.lv === 'warn' || l.lv === 'err';
+        const map = { zram:'ZRAM', vm:'VM', bg:'BG' };
+        return l.tag === map[logFilter];
+      });
+    }
+    list = list.slice().reverse();   // 新的在上
 
     if(!list.length){
-      const why = BRIDGE_STATE === 'ok' || BRIDGE_STATE === 'demo'
-        ? '还没有日志。开机跑过一次 service.sh 之后才会写入。'
-        : '无法连接模块执行环境，读不到日志。';
-      box.innerHTML = '<div style="padding:26px 16px;text-align:center;color:var(--tx3);font-size:12.5px;line-height:1.6">' + esc(why) + '</div>';
+      let why;
+      if(!hasKsu() && !DEMO) why = '无法连接模块执行环境，读不到日志。';
+      else if(logFilter === 'kill') why = '最近 1500 条系统事件里没有 lmkd 击杀记录。\n被系统回收过的应用会出现在这里。';
+      else why = '还没有日志。开机跑过一次 service.sh 之后才会写入。';
+      box.innerHTML = '<div style="padding:26px 16px;text-align:center;color:var(--tx3);font-size:12.5px;line-height:1.7;white-space:pre-line">' + esc(why) + '</div>';
     }else{
       box.innerHTML = list.map(l =>
-        '<div class="log ' + lvClass[l.lv] + '">' +
+        '<div class="log ' + (lvClass[l.lv] || '') + '">' +
           '<div class="rail"><i></i></div>' +
           '<div class="body">' +
             '<div class="meta"><span class="tm">' + esc(l.t) + '</span><span class="tag">' + esc(l.tag) + '</span></div>' +
-            '<div class="msg">' + esc(l.msg).replace(/(size|algorithm|mode|min_free_kbytes|am_cache)=([^\s,;]+)/g, '$1=<em>$2</em>') + '</div>' +
+            '<div class="msg">' + esc(l.msg) + '</div>' +
           '</div>' +
         '</div>'
       ).join('');
+      // 只有模块日志需要把 key=value 高亮；击杀记录格式不同，不做替换
+      if(logFilter !== 'kill'){
+        $$('#logList .msg').forEach(el => {
+          el.innerHTML = el.innerHTML.replace(/(size|algorithm|mode|min_free_kbytes|am_cache)=([^\s,;]+)/g, '$1=<em>$2</em>');
+        });
+      }
     }
 
-    const all = $('.logbar button[data-filter="all"] u');
-    if(all) all.textContent = LOGS.length;
+    const allU = $('.logbar button[data-filter="all"] u');
+    if(allU) allU.textContent = LOGS.length;
+    const killU = $('.logbar button[data-filter="kill"] u');
+    if(killU) killU.textContent = KILLS.length;
+
     const foot = $('#logFoot');
     if(foot){
-      foot.textContent = list.length
-        ? ('显示 ' + list.length + ' 条 / 共 ' + LOGS.length + ' 条 · 日志上限 64 KB，超出后保留最近 100 行')
-        : '日志位于 /data/adb/modules/memkeep_plus/memkeep.log';
+      if(logFilter === 'kill'){
+        foot.textContent = KILLS.length
+          ? ('最近 ' + KILLS.length + ' 条击杀记录 · 来源 logcat -b events (lmkd)')
+          : '来源 logcat -b events (lmkd) · 只在系统真的回收过进程时才有记录';
+      }else{
+        foot.textContent = list.length
+          ? ('显示 ' + list.length + ' 条 / 共 ' + LOGS.length + ' 条 · 日志上限 64 KB，超出后保留最近 100 行')
+          : '日志位于 /data/adb/modules/memkeep_plus/memkeep.log';
+      }
     }
   }
 
   async function loadLogs(){
     if(!hasKsu()){
       LOGS = DEMO ? parseLogs(DEMO_LOG_TEXT) : [];
-      renderLogs('all');
+      KILLS = DEMO ? parseKills(DEMO_KILL_TEXT) : [];
+      renderLogs(logFilter);
       return;
     }
     try{
       const out = await shell('logs 200', 20000);
       LOGS = parseLogs(out);
-    }catch(e){
-      LOGS = [];
-    }
-    renderLogs('all');
+    }catch(e){ LOGS = []; }
+    try{
+      const k = await shell('kills 60', 25000);
+      KILLS = parseKills(k);
+    }catch(e){ KILLS = []; }
+    renderLogs(logFilter);
   }
 
   const DEMO_LOG_TEXT = [
@@ -1766,6 +1996,12 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     '[2026-10-20 17:20:11] keep list applied',
     '[2026-10-20 17:20:11] keep guardian started',
     '[2026-10-20 17:21:30] service finished'
+  ].join('\n');
+
+  const DEMO_KILL_TEXT = [
+    "10-20 19:41:02.331  1588  1602 I lmkd    : Kill 'com.tencent.mobileqq' (18234), uid 10201, oom_score_adj 900 to free 412876kB",
+    "10-20 19:58:44.902  1588  1602 I lmkd    : Kill 'com.taobao.taobao' (21022), uid 10233, oom_score_adj 850 to free 318452kB",
+    "10-20 20:12:10.447  1588  1602 I lmkd    : Kill 'com.xingin.xhs' (24518), uid 10251, oom_score_adj 900 to free 268310kB"
   ].join('\n');
 
   $('.logbar').addEventListener('click', e=>{
@@ -1830,6 +2066,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   ];
 
   let PROCS = [];
+  let KEPT_COUNT = 0;        // 保活名单里的应用数（与是否在运行无关）
   let procFilter = 'app';
   let procKeyword = '';
 
@@ -1910,10 +2147,9 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
     const c = $('#procCount');
     if(c) c.textContent = PROCS.length ? (PROCS.length + ' 个进程 · 按 RSS') : '—';
     // 计数按应用算，不按进程算 —— 微信 :push 不能再算一个应用
-    const keptPkgs = new Set(PROCS.filter(p => p.kept).map(pkgOf));
     const k = $('#keptCount');
-    if(k && PROCS.length){
-      k.innerHTML = keptPkgs.size +
+    if(k && (PROCS.length || KEPT_COUNT)){
+      k.innerHTML = KEPT_COUNT +
         ' <em style="font-style:normal;color:var(--tx3);font-weight:400">个</em>';
     }
   }
@@ -1968,7 +2204,6 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
       const pc = $('#zramPct'); if(pc) pc.textContent = Math.round(pct) + '%';
       const u = $('#zramUse'); if(u) u.textContent = gb(usedKb) + ' / ' + gb(diskKb) + ' GB';
     }
-    const mini = $('#zramUsedMini'); if(mini) mini.textContent = gb(usedKb) + ' GB';
     if(usedKb > 0 && origKb > 0){
       const ra = $('#zramRatio'); if(ra) ra.textContent = (origKb / usedKb).toFixed(2) + '×';
       const sv = $('#zramSaved'); if(sv) sv.textContent = gb(Math.max(0, origKb - usedKb)) + ' GB';
@@ -1978,6 +2213,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   async function loadMem(){
     if(!hasKsu() && !DEMO) return;
     if(DEMO){   // 画效果图用的完整演示数据，保持各项数值自洽
+      RAM_GB = 11.7;
       setHeroUsed(8.1 * 1048576, 11.7 * 1048576);
       const a = $('#memAvail'); if(a) a.textContent = '3.6 GB';
       const c = $('#memCached'); if(c) c.textContent = '3.4 GB';
@@ -1994,6 +2230,12 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
         if(i > 0) m[l.slice(0, i)] = l.slice(i + 1);
       });
       const total = +m.total, avail = +m.avail, cached = +m.cached;
+      if(total > 0){
+        // 物理内存到手后，容量选项的上下限与 auto 提示才有意义
+        const changed = Math.abs(RAM_GB - total / 1048576) > 0.05;
+        RAM_GB = total / 1048576;
+        if(changed) renderZramSize();
+      }
       if(total > 0 && avail >= 0){
         setHeroUsed(total - avail, total);
         const a = $('#memAvail'); if(a) a.textContent = gb(avail) + ' GB';
@@ -2004,14 +2246,27 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
       setZram(Math.round((+m.zram_used || 0) / 1024),
               Math.round((+m.zram_disk || 0) / 1024),
               Math.round((+m.zram_orig || 0) / 1024));
-      const alg = $('.zchip');
+      const alg = $('#zramAlgChip');
       if(alg && m.zram_alg) alg.innerHTML = '<span class="dot"></span>' + esc(m.zram_alg);
-    }catch(e){}
+      // PSI：avg10 是「最近 10 秒有多少比例的时间在等内存」，比占用率更能说明紧不紧
+      const psi = $('#psiSome');
+      if(psi){
+        if(m.psi_some == null || m.psi_some === ''){
+          psi.textContent = '不可用';
+          psi.className = '';
+        }else{
+          const v = +m.psi_some;
+          psi.textContent = v.toFixed(1) + '%';
+          psi.className = v >= 20 ? 'warn' : '';
+        }
+      }
+    }catch(e){ console.warn('[mem]', e && (e.message || e)); }
   }
 
   async function loadProcs(){
     if(!hasKsu()){
       PROCS = DEMO ? MOCK_PROCS.map(x => Object.assign({}, x)) : [];
+      if(DEMO) KEPT_COUNT = 2;
       return;
     }
     try{
@@ -2027,13 +2282,14 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
           const [k, t] = l.split(/\s+/);
           if(k) keptMap[k] = t;
         });
-      }catch(e){}
+      }catch(e){ console.warn('[procs]', e && (e.message || e)); }
       rows.forEach(r => {
         const pkg = pkgOf(r);
         if(keptMap[pkg]){ r.kept = true; r.tier = keptMap[pkg]; }
       });
+      KEPT_COUNT = Object.keys(keptMap).length;
       if(rows.length) PROCS = rows;
-    }catch(e){}
+    }catch(e){ console.warn('[procs]', e && (e.message || e)); }
   }
 
   /* ---- 面板开关 ---- */
@@ -2048,6 +2304,7 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   }
   window.addEventListener('popstate', ()=>{
     if($('#procPanel').classList.contains('on')) closePanel(true);
+    if($('#appPanel').classList.contains('on')) closeAppPanel(true);
   });
 
   $('#procFilters').addEventListener('click', e=>{
@@ -2134,15 +2391,185 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
   async function toggleKeep(p){
     const pkg = pkgOf(p);
     const willKeep = !p.kept;
-    if(ksuApi()){
-      try{ await exec('sh ' + shq(MEMKEEP) + ' keep set ' + shq(pkg) + ' ' + (willKeep ? 'critical' : 'off')); }catch(e){}
-    }
+    await setKeep(pkg, willKeep ? 'critical' : 'off');
     PROCS.forEach(x => {
       if(pkgOf(x) === pkg){ x.kept = willKeep; x.tier = willKeep ? 'critical' : undefined; }
     });
     renderAll();
     toast(willKeep ? ('已加入保活 · ' + pkg) : ('已取消保活 · ' + pkg));
   }
+
+  /* ---------------- 应用选择（保活名单） ---------------- */
+  // 之前只能从"正在运行的进程"里挑，没运行的应用根本选不到。
+  // apps 子命令走 pm list packages -3，再用真正的名单标注保护状态。
+  let APPS = [];          // [{ pkg, kept, tier }]
+  let appKeyword = '';
+  let appFilter = 'all';
+  let appsLoaded = false;
+
+  async function setKeep(pkg, tier){
+    if(hasKsu()){
+      try{
+        const out = await shell('keep set ' + shq(pkg) + ' ' + tier);
+        if(!/^OK/i.test(String(out).trim())){
+          toast('写入失败：' + String(out).trim());
+          return false;
+        }
+      }catch(e){ toast('写入失败，请检查模块状态'); return false; }
+    }
+    KEPT_COUNT = APPS.filter(a => a.pkg === pkg ? (tier !== 'off') : a.kept).length;
+    const hit = APPS.filter(a => a.pkg === pkg)[0];
+    if(hit){
+      if(tier === 'off'){ hit.kept = false; hit.tier = ''; }
+      else { hit.kept = true; hit.tier = tier; }
+    }
+    PROCS.forEach(x => {
+      if(pkgOf(x) === pkg){
+        x.kept = tier !== 'off';
+        x.tier = tier === 'off' ? undefined : tier;
+      }
+    });
+    return true;
+  }
+
+  function appRows(){
+    const kw = appKeyword.trim().toLowerCase();
+    return APPS.filter(a => {
+      if(appFilter === 'kept' && !a.kept) return false;
+      if(appFilter === 'free' && a.kept) return false;
+      if(!kw) return true;
+      const label = (LABELS[a.pkg] || '').toLowerCase();
+      return a.pkg.toLowerCase().indexOf(kw) >= 0 || label.indexOf(kw) >= 0;
+    }).sort((x, y) => {
+      // 保护中的置顶，其余按名字排，避免每次打开顺序都变
+      if(x.kept !== y.kept) return x.kept ? -1 : 1;
+      const lx = LABELS[x.pkg] || x.pkg, ly = LABELS[y.pkg] || y.pkg;
+      return lx.localeCompare(ly, 'zh');
+    });
+  }
+
+  function renderApps(){
+    const box = $('#appList');
+    if(!box) return;
+    const list = appRows();
+
+    if(!list.length){
+      const why = !hasKsu() && !DEMO
+        ? '未连接模块执行环境，读不到已安装应用。'
+        : (APPS.length ? '没有匹配的应用' : '还没有读取到已安装应用，请稍候或下拉刷新。');
+      box.innerHTML = '<div style="padding:34px 16px;text-align:center;color:var(--tx3);font-size:12.5px;line-height:1.6">' + esc(why) + '</div>';
+    }else{
+      box.innerHTML = list.map(a => {
+        const label = LABELS[a.pkg] || a.pkg;
+        const tag = a.kept
+          ? '<span class="tag2' + (a.tier === 'critical' ? '' : ' re') + '">' +
+            (a.tier === 'critical' ? '强保护' : '可重启') + '</span>'
+          : '';
+        return '<button class="arow" data-app="' + esc(a.pkg) + '">' +
+          '<span class="am"><b>' + esc(label) + '</b><i>' + esc(a.pkg) + '</i></span>' +
+          tag + '</button>';
+      }).join('');
+    }
+
+    const sub = $('#appPanelSub');
+    if(sub) sub.textContent = APPS.length
+      ? ('已安装 ' + APPS.length + ' 个第三方应用 · 保护中 ' + APPS.filter(a => a.kept).length + ' 个')
+      : '读取已安装应用…';
+    const foot = $('#appFoot');
+    if(foot) foot.textContent = '点应用选择保护级别 · 强保护写入 oom_score_adj -1000 并加入 Doze 白名单 · 可重启为 -999';
+  }
+
+  async function loadApps(){
+    if(!hasKsu()){
+      if(DEMO){
+        APPS = [
+          { pkg:'com.tencent.mm', kept:true,  tier:'critical' },
+          { pkg:'com.tencent.mobileqq', kept:false, tier:'' },
+          { pkg:'com.eg.android.AlipayGphone', kept:false, tier:'' },
+          { pkg:'com.ss.android.ugc.aweme', kept:true, tier:'restartable' },
+          { pkg:'com.taobao.taobao', kept:false, tier:'' },
+          { pkg:'com.xingin.xhs', kept:false, tier:'' }
+        ];
+      }
+      renderApps();
+      return;
+    }
+    try{
+      const out = await shell('apps', 20000);
+      const pkgs = String(out).trim().split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+      const keptMap = {};
+      try{
+        const kl = await shell('keep list');
+        String(kl).trim().split(/\r?\n/).filter(Boolean).forEach(l => {
+          const [k, t] = l.split(/\s+/);
+          if(k) keptMap[k] = t || 'critical';
+        });
+      }catch(e){ console.warn('[apps]', e && (e.message || e)); }
+      APPS = pkgs.map(pkg => ({
+        pkg: pkg,
+        kept: !!keptMap[pkg],
+        tier: keptMap[pkg] || ''
+      }));
+      appsLoaded = true;
+    }catch(e){
+      APPS = [];
+    }
+    renderApps();
+  }
+
+  function openAppPanel(){
+    $('#appPanel').classList.add('on');
+    renderApps();
+    if(!appsLoaded) loadApps();
+    history.pushState({ apps: 1 }, '');
+  }
+  function closeAppPanel(fromPop){
+    $('#appPanel').classList.remove('on');
+    if(!fromPop && history.state && history.state.apps) history.back();
+  }
+
+  function openAppSheet(pkg){
+    const hit = APPS.filter(a => a.pkg === pkg)[0] || { pkg: pkg, kept: false, tier: '' };
+    const label = LABELS[pkg] || pkg;
+    const cur = hit.kept ? (hit.tier === 'critical' ? '当前：强保护（-1000，永不被杀）' : '当前：可重启（-999，回收后会被拉起）') : '当前：未加入保活名单';
+
+    openSheet({
+      title: label,
+      html: '<p class="mono">' + esc(pkg) + '</p>' +
+            '<p>' + esc(cur) + '</p>' +
+            '<p style="margin-top:10px">保护会同时写入两层：<b>oom_score_adj</b> 让系统尽量不选它，' +
+            '<b>standby bucket + Doze 白名单</b> 让它在待机时不被休眠策略掐掉通知。</p>',
+      actions: [
+        { label: '强保护 · 永不被杀', kind: 'ok', onClick: ()=> chooseKeep(pkg, 'critical') },
+        { label: '可重启 · 回收后自动拉起', onClick: ()=> chooseKeep(pkg, 'restartable') },
+        { label: '移出保活名单', kind: 'danger', onClick: ()=> chooseKeep(pkg, 'off') }
+      ],
+      cancel: '关闭',
+      single: true
+    });
+  }
+
+  async function chooseKeep(pkg, tier){
+    const ok = await setKeep(pkg, tier);
+    if(!ok) return;
+    renderApps();
+    renderAll();
+    toast(tier === 'off'
+      ? ('已移出保活 · ' + (LABELS[pkg] || pkg))
+      : (tier === 'critical' ? '已强保护 · ' : '已设为可重启 · ') + (LABELS[pkg] || pkg));
+  }
+
+  $('#appFilters').addEventListener('click', e=>{
+    const b = e.target.closest('button[data-afilter]');
+    if(!b) return;
+    appFilter = b.dataset.afilter;
+    $$('#appFilters .chip-s').forEach(x => x.classList.toggle('on', x === b));
+    renderApps();
+  });
+  $('#appSearch').addEventListener('input', e=>{
+    appKeyword = e.target.value;
+    renderApps();
+  });
 
   /* ---------------- sheet ---------------- */
   let sheetOnOk = null, sheetOnCancel = null;
@@ -2208,6 +2635,12 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
       return;
     }
 
+    const appRow = e.target.closest('.arow[data-app]');
+    if(appRow){
+      openAppSheet(appRow.dataset.app);
+      return;
+    }
+
     const vmRow = e.target.closest('.vm-item[data-vm]');
     if(vmRow){
       const def = VM_DEFS.filter(d => d.k === vmRow.dataset.vm)[0];
@@ -2222,61 +2655,159 @@ html[data-theme="light"] .sheet .btns .prime.ok{color:#fff}
       openPanel();
     } else if(a === 'closeprocs'){
       closePanel();
-    } else if(a === 'suggest'){
-      setZramSize('12G');
-      setTab('tune');
-      toast('已选 12 GB，保存后重启生效');
+    } else if(a === 'openapps'){
+      openAppPanel();
+    } else if(a === 'closeapps'){
+      closeAppPanel();
     } else if(a === 'github'){
       openUrl('https://github.com/' + UPD_REPO);
     } else if(a === 'copylog'){
-      toast('日志已复制到剪贴板');
+      copyLogs();
     } else if(a === 'update'){
       checkUpdate();
     } else if(a === 'clearlog'){
       openSheet({
         title:'清空日志文件？',
-        text:'将删除 memkeep.log，不影响当前已应用的内核参数与配置。',
-        warn:'',
+        text:'将把 memkeep.log 清空，不影响当前已应用的内核参数与配置。',
         ok:'清空',
         danger:true,
-        onOk:()=> toast('日志已清空')
+        onOk: async ()=>{
+          if(!hasKsu()){ toast('未连接模块，无法操作'); return; }
+          try{
+            await shell('logclear');
+            LOGS = [];
+            renderLogs(logFilter);
+            toast('日志已清空');
+          }catch(e){ toast('清空失败'); }
+        }
+      });
+    } else if(a === 'restore'){
+      openSheet({
+        title:'恢复系统原值？',
+        text:'把安装模块时记录的 /proc/sys/vm/* 与 ActivityManager 缓存上限还原成安装前的数值，并清空保活名单。',
+        warn:'这是"还原到装模块之前"的操作，模块本身仍在。恢复后需要重启才能重新按配置生效。',
+        ok:'还原',
+        danger:true,
+        onOk: async ()=>{
+          if(!hasKsu()){ toast('未连接模块，无法操作'); return; }
+          try{
+            const out = await shell('restore', 25000);
+            const r = String(out).trim();
+            if(r === 'NO_SNAPSHOT'){ toast('没有安装快照，无法还原'); return; }
+            if(!/^OK/.test(r)){ toast('还原失败：' + r); return; }
+            toast('已还原为安装前的系统参数');
+            await loadConfig();
+          }catch(e){ toast('还原失败'); }
+        }
       });
     } else if(a === 'reset'){
       openSheet({
-        title:'恢复出厂参数？',
-        text:'将把 config.conf 重置为默认值（auto 容量 / auto 算法 / 增强保活），并重新应用 VM 参数。',
+        title:'恢复模块默认参数？',
+        text:'把 config.conf 重置为默认值（auto 容量 / auto 算法 / 增强保活），并撤销手动改过的 VM 参数。',
         warn:'不会自动重建 ZRAM，需重启一次才会恢复默认压缩容量。',
         ok:'恢复默认',
         danger:true,
-        onOk:()=> toast('已恢复默认参数')
+        onOk: async ()=>{
+          if(!hasKsu()){ toast('未连接模块，无法操作'); return; }
+          try{
+            await shell('reset', 20000);
+            await loadConfig();
+            toast('已恢复模块默认参数');
+          }catch(e){ toast('恢复失败'); }
+        }
       });
     } else if(a === 'uninstall'){
       openSheet({
         title:'卸载模块？',
-        text:'将标记模块为移除状态，重启后不再加载，同时清除本模块写入的 device_config 与属性。',
+        text:'会写入 remove 标记并停止保活守护。下次开机会移除模块目录，同时撤销本模块写过的 device_config 与属性。',
         warn:'该操作不可在应用内撤销，只能重新刷入 ZIP。',
-        ok:'卸载',
+        ok:'标记卸载',
         danger:true,
-        onOk:()=> toast('已标记卸载，重启后生效')
+        onOk: async ()=>{
+          if(!hasKsu()){ toast('未连接模块，无法操作'); return; }
+          try{
+            const out = await shell('markremove');
+            if(!/^OK/.test(String(out).trim())){ toast('标记失败：' + String(out).trim()); return; }
+            toast('已标记卸载，重启后生效');
+          }catch(e){ toast('标记失败'); }
+        }
       });
     }
   });
 
-  $('#refreshBtn').addEventListener('click', ()=>{
+  // 复制日志：优先写系统剪贴板，WebView 不支持时退到 prompt 让用户手动复制
+  async function copyLogs(){
+    const src = logFilter === 'kill' ? KILLS : LOGS;
+    if(!src.length){ toast('当前没有可复制的日志'); return; }
+    const text = src.map(l => l.t + ' [' + l.tag + '] ' + l.msg).join('\n');
+    try{
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        await navigator.clipboard.writeText(text);
+        toast('已复制 ' + src.length + ' 条日志');
+        return;
+      }
+      throw new Error('no clipboard');
+    }catch(e){
+      // WebView 里 clipboard API 常被禁用，直接给一个可选中的文本域兜底
+      openSheet({
+        title: '复制日志',
+        html: '<p>当前环境不支持自动写入剪贴板，长按下面文本手动复制：</p>' +
+              '<textarea readonly style="width:100%;height:180px;margin-top:10px;border-radius:12px;' +
+              'border:1px solid var(--line);background:var(--s2);color:var(--tx);font-size:11px;' +
+              'padding:10px;font-family:ui-monospace,Menlo,monospace">' + esc(text) + '</textarea>',
+        single: true,
+        ok: '关闭'
+      });
+    }
+  }
+
+  async function refreshAll(){
     const btn = $('#refreshBtn');
-    btn.style.transition = 'transform .5s ease';
-    btn.style.transform = 'rotate(360deg)';
-    setTimeout(()=>{ btn.style.transition = 'none'; btn.style.transform = 'none'; },520);
+    if(btn){
+      btn.style.transition = 'transform .5s ease';
+      btn.style.transform = 'rotate(360deg)';
+      setTimeout(()=>{ btn.style.transition = 'none'; btn.style.transform = 'none'; }, 520);
+    }
+    if(BRIDGE_STATE !== 'ok' && BRIDGE_STATE !== 'demo'){ toast('未连接模块，无法刷新'); return; }
+    await Promise.allSettled([ loadMem(), loadProcs().then(renderAll), loadDevice(), loadLogs() ]);
+    appsLoaded = false;
     toast('已刷新');
+  }
+  $('#refreshBtn').addEventListener('click', refreshAll);
+
+  /* ---------------- 实时刷新 ---------------- */
+  // 内存占用是「现在」的状态，只在进页面时读一次会立刻过期。
+  // 3 秒一次只拉 mem（一次 awk 读 /proc/meminfo，毫秒级），进程列表不跟着刷，
+  // 否则每 3 秒重排 60 行会把滚动位置弄乱。
+  let liveTimer = null;
+  function startLive(){
+    if(liveTimer) clearInterval(liveTimer);
+    liveTimer = setInterval(()=>{
+      if(document.hidden) return;
+      if(BRIDGE_STATE !== 'ok' && BRIDGE_STATE !== 'demo') return;
+      const monOn = $('#view-monitor').classList.contains('on');
+      if(monOn) loadMem();
+    }, 3000);
+  }
+  document.addEventListener('visibilitychange', ()=>{
+    if(!document.hidden && (BRIDGE_STATE === 'ok' || BRIDGE_STATE === 'demo')) loadMem();
   });
 
   /* ---------------- boot ---------------- */
   (async ()=>{
     await detectBridge();
     updateStateChip();
-    await Promise.allSettled([ loadProcs().then(renderAll), loadMem(), loadCaps(), loadAlgs(), loadLogs() ]);
+    await Promise.allSettled([
+      loadConfig(),                        // 先回读配置，避免用户看到默认值
+      loadProcs().then(renderAll),
+      loadMem(),
+      loadDevice(),
+      loadAlgs(),
+      loadLogs()
+    ]);
     updateStateChip();
     renderLogs(logFilter);
+    startLive();
   })();
   const qTab = params.get('tab');
   setTab(qTab || (location.hash ? location.hash.slice(1) : 'monitor'));

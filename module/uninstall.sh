@@ -25,3 +25,16 @@ if command -v resetprop >/dev/null 2>&1; then
   resetprop -p --delete persist.sys.preload.enable >/dev/null 2>&1
   resetprop -p --delete persist.sys.precache.enable >/dev/null 2>&1
 fi
+
+# 撤销保活时写进系统的 standby bucket 与 Doze 白名单，
+# 否则卸载后这些应用仍被系统特殊对待。
+LIST="$MODDIR/keep_apps.conf"
+if [ -f "$LIST" ]; then
+  grep -v '^[[:space:]]*#' "$LIST" 2>/dev/null | grep -v '^[[:space:]]*$' | while read -r pkg _tier; do
+    [ -n "$pkg" ] || continue
+    cmd deviceidle whitelist "-$pkg" >/dev/null 2>&1
+    am set-standby-bucket "$pkg" working_set >/dev/null 2>&1
+  done
+fi
+
+rm -f "$MODDIR/guard.pid" "$MODDIR/system_snapshot.conf" 2>/dev/null
