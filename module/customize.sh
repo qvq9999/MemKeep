@@ -9,6 +9,7 @@ set_perm "$MODPATH/tools.sh" 0 0 0755
 set_perm "$MODPATH/action.sh" 0 0 0755
 set_perm "$MODPATH/bin/memkeep.sh" 0 0 0755
 set_perm "$MODPATH/keep_apps.conf" 0 0 0644
+set_perm "$MODPATH/app_names.conf" 0 0 0644
 
 # ---- 升级迁移：把上一版里用户调过的设置带过来 ----
 # 根管理器更新模块时是「新包覆盖模块目录」，用户改过的 config.conf / keep_apps.conf
@@ -45,7 +46,7 @@ valid_cfg() {
     # 数值项的范围与 memkeep.sh 的 cmd_vmsave 保持一致 ——
     # 迁移进来的值必须还能被 write 路径接受，否则重启后写 sysfs 会静默失败。
     # AM_CACHE_MAX=0 是「跟随档位」的哨兵值，config.conf 的默认值就是 0
-    AM_CACHE_MAX)    [ "$2" = "0" ] || range_num "$2" 64 512 && return 0 ;;
+    AM_CACHE_MAX)    [ "$2" = "0" ] || range_num "$2" 64 1024 && return 0 ;;
     VM_SWAPPINESS)   range_num "$2" 0 200 && return 0 ;;
     VM_WATERMARK)    range_num "$2" 10 400 && return 0 ;;
     VM_MIN_FREE)     range_num "$2" 32768 262144 && return 0 ;;
@@ -89,6 +90,14 @@ if [ -f "$OLD_DIR/keep_apps.conf" ]; then
   chmod 0644 "$MODPATH/keep_apps.conf" 2>/dev/null
   MIG_LIST=$(grep -vcE '^[[:space:]]*(#|$)' "$MODPATH/keep_apps.conf" 2>/dev/null)
   case "$MIG_LIST" in ''|*[!0-9]*) MIG_LIST=0 ;; esac
+fi
+
+# 用户自定义的应用显示名同样是纯用户数据，不能因为升级就丢
+if [ -f "$OLD_DIR/app_names.conf" ]; then
+  cp -f "$OLD_DIR/app_names.conf" "$MODPATH/app_names.conf" 2>/dev/null
+  chmod 0644 "$MODPATH/app_names.conf" 2>/dev/null
+  MIG_NAMES=$(grep -vcE '^[[:space:]]*(#|$)' "$MODPATH/app_names.conf" 2>/dev/null)
+  case "$MIG_NAMES" in ''|*[!0-9]*) MIG_NAMES=0 ;; esac
 fi
 
 ui_print "- MemKeep++"
@@ -173,6 +182,7 @@ fi
 
 if [ -f "$OLD_DIR/config.conf" ]; then
   ui_print "- 升级：已保留 $MIG_KEPT 项上次的设置，保活名单 $MIG_LIST 个应用"
+  [ "${MIG_NAMES:-0}" -gt 0 ] 2>/dev/null && ui_print "- 已保留 $MIG_NAMES 个自定义应用名"
   [ "$MIG_DROP" -gt 0 ] && ui_print "- 其中 $MIG_DROP 项取值不合法，已重置为新版默认值"
   [ -f "$MODPATH/config.conf.old" ] && ui_print "- 旧配置留档: config.conf.old"
 else

@@ -21,6 +21,7 @@ esac
 [ -d "$MODDIR" ] || MODDIR=${0%/*}
 LIST="$MODDIR/keep_apps.conf"
 CONFIG="$MODDIR/config.conf"
+NAMES="$MODDIR/app_names.conf"      # 用户自定义显示名（包名=名字）
 
 # 就地改一个键，注释和其它键原样保留（和 save_config.sh 同一套思路）
 set_conf_kv() {
@@ -409,7 +410,18 @@ cmd_markremove() {
 cmd_setcache() {
   n="$1"
   case "$n" in ''|*[!0-9]*) echo "REFUSE_INVALID"; return 1 ;; esac
-  [ "$n" -lt 64 ] || [ "$n" -gt 512 ] || { echo "REFUSE_RANGE 64 512"; return 1; }
+  # 这里必须「越界才拒绝」。旧代码写成
+  #   [ "$n" -lt 64 ] || [ "$n" -gt 512 ] || { echo REFUSE_RANGE; return 1; }
+  # A || B || C 里的 C 只在 A、B 都为假时执行 —— 于是 64..512 之间的值
+  # 两个条件都为假，必然落到 refuse，WebUI 里怎么调都被拒；反而 <64 / >512
+  # 这种非法值能写进去。
+  # 上限必须与 tools.sh 的 apply_background_retention 一致（那边钳到 1024）：
+  # 档位按「原厂 ×2」算出来的值本来就能到 1024，手动却只给到 512，
+  # 会出现「默认 1024、手动最高只能 512」这种自相矛盾。
+  if [ "$n" -lt 64 ] || [ "$n" -gt 1024 ]; then
+    echo "REFUSE_RANGE 64 1024"
+    return 1
+  fi
   set_conf_kv AM_CACHE_MAX "$n"
   device_config put activity_manager max_cached_processes "$n" >/dev/null 2>&1
   device_config put activity_manager max_phantom_processes "$n" >/dev/null 2>&1
@@ -419,6 +431,40 @@ cmd_setcache() {
 cmd_keep_list() {
   [ -f "$LIST" ] || return 0
   grep -v '^[[:space:]]*#' "$LIST" 2>/dev/null | grep -v '^[[:space:]]*$'
+}
+
+# 用户自定义的应用显示名。
+# Android 没有命令能给出本地化应用名（pm / dumpsys 都不带 label，label 只在 APK 的
+# resources.arsc 里），所以 WebUI 内置了一张常用表，覆盖不到的由用户自己命名，
+# 存在这里。格式每行「包名=名字」，和 keep_apps.conf 一样是人可读的纯文本。
+cmd_names() {
+  [ -f "$NAMES" ] || return 0
+  grep -v '^[[:space:]]*#' "$NAMES" 2>/dev/null | grep -v '^[[:space:]]*$'
+}
+
+cmd_name_set() {
+  pkg="$1"; shift
+  name="$*"
+  case "$pkg" in ''|*[!A-Za-z0-9._:-]*) echo "REFUSE_INVALID"; return 1 ;; esac
+
+  # 名字里出现换行会把 conf 的行结构弄坏；等号会把 key/value 切错
+  name=$(printf '%s' "$name" | tr -d '\n\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+  case "$name" in
+    *=*) echo "REFUSE_INVALID"; return 1 ;;
+  esac
+  # 按字节算，60 字节 ≈ 20 个汉字；超长一律拒绝而不是截断（截断会把汉字切坏）
+  [ ${#name} -le 60 ] || { echo "REFUSE_TOO_LONG"; return 1; }
+
+  [ -f "$NAMES" ] || : > "$NAMES"
+  tmp="$NAMES.tmp"
+  grep -v "^$pkg=" "$NAMES" > "$tmp" 2>/dev/null
+  if [ -n "$name" ]; then
+    printf '%s=%s\n' "$pkg" "$name" >> "$tmp"
+  fi
+  cat "$tmp" > "$NAMES"
+  rm -f "$tmp"
+  chmod 0644 "$NAMES" 2>/dev/null
+  echo "OK $pkg $name"
 }
 
 cmd_keep_set() {
@@ -445,7 +491,31 @@ cmd_keep_set() {
 # 保活体检：把「到底有没有生效」变成可验证的数字。
 # 之前只能看到「保护中」三个字，但分数有没有压进去、应用是不是真被冻结、
 # 回收有没有伤到工作集，全靠猜。
-cmd_health() {
+#
+# 慢的根因不在读数本身，而在 fork 次数。旧实现每个保活应用都要：
+#   · 调 2 次 keep list（每次 3 个 fork）
+#   · pids_of_pkg 回落时跑一次 `ps -A` 全表
+#   · `am get-standby-bucket` 一次（fork app_process + binder 到 system_server，0.3–1.5s）
+# 8 个应用就是 8–18 秒。所以拆成三段：
+#   health fast   只读 /proc /sys，几十毫秒 —— 前端先渲染这一屏
+#   health bucket 只剩「每包一次 am」，有限并发、单独超时，异步补进表格
+#   health        旧的合并版，留给还没更新的前端 / 命令行直接用
+PS_SNAP=""
+ps_snapshot() {
+  ps -A -o PID,NAME 2>/dev/null | tail -n +2
+}
+
+get_standby_bucket() {
+  if command -v timeout >/dev/null 2>&1; then
+    b=$(timeout 2 am get-standby-bucket "$1" 2>/dev/null | tr -d ' \r')
+  else
+    b=$(am get-standby-bucket "$1" 2>/dev/null | tr -d ' \r')
+  fi
+  case "$b" in ''|*[!0-9]*) b=-1 ;; esac
+  echo "$b"
+}
+
+cmd_health_fast() {
   # 工作集回读：页面被淘汰后又立刻读回来的次数。
   # 增长快 = 回收把热页淘汰了 = 应用切回来要重新加载，也就是"假保活"。
   awk '
@@ -465,38 +535,102 @@ cmd_health() {
   fz=$(device_config get activity_manager_native_boot use_freezer 2>/dev/null)
   if [ "$fz" = "true" ]; then echo "freezer=1"; else echo "freezer=0"; fi
 
-  frozen=0
+  # 冻结数量要从 dumpsys activity 里数。它是全量 dump，AM 忙的时候能卡好几秒，
+  # 所以给它单独的硬超时；拿不到就报 frozen_ok=0，前端显示「—」而不是假的 0。
+  frozen=0; fok=0
   if [ "$fz" = "true" ]; then
-    frozen=$(dumpsys activity 2>/dev/null | grep -m1 -iE "Apps frozen:" | grep -oE "[0-9]+" | head -n1)
-    case "$frozen" in ''|*[!0-9]*) frozen=0 ;; esac
+    if command -v timeout >/dev/null 2>&1; then
+      n=$(timeout 3 dumpsys activity 2>/dev/null | grep -m1 -iE "Apps frozen:" | grep -oE "[0-9]+" | head -n1)
+    else
+      n=$(dumpsys activity 2>/dev/null | grep -m1 -iE "Apps frozen:" | grep -oE "[0-9]+" | head -n1)
+    fi
+    case "$n" in ''|*[!0-9]*) frozen=0; fok=0 ;; *) frozen=$n; fok=1 ;; esac
   fi
   echo "frozen=$frozen"
+  echo "frozen_ok=$fok"
 
-  total=0
-  okc=0
-  for pkg in $(cmd_keep_list | awk '{print $1}'); do
+  # MGLRU / memcg：前端早就在读这两个键（用来判断「工作集保护能不能生效」
+  # 和「有没有 memory.low」），但这里一直没输出，那两条诊断提示永远不出现。
+  [ -d /sys/kernel/mm/lru_gen ] && echo "mglru=1" || echo "mglru=0"
+  if [ -e /sys/fs/cgroup/cgroup.controllers ]; then
+    grep -q memory /sys/fs/cgroup/cgroup.controllers 2>/dev/null && echo "memcg=v2" || echo "memcg=v2-nomem"
+  else
+    echo "memcg=v1"
+  fi
+
+  list=$(cmd_keep_list)
+  [ -n "$list" ] || { echo "kept=0"; echo "kept_ok=0"; return 0; }
+
+  # 一次 ps 建快照，循环里只做 awk 匹配 —— 原来是每个包 fork 一次 ps -A
+  PS_SNAP=$(ps_snapshot)
+
+  total=0; okc=0
+  while read -r pkg tier; do
     [ -n "$pkg" ] || continue
     total=$((total + 1))
-    tier=$(cmd_keep_list | awk -v p="$pkg" '$1==p{print $2; exit}')
     tgt=$(score_of "$tier")
 
     adj=""
-    for pd in $(pids_of_pkg "$pkg"); do
+    for pd in $(printf '%s\n' "$PS_SNAP" | \
+        awk -v p="$pkg" '$2==p || index($2, p ":")==1 {print $1}'); do
       a=$(cat "/proc/$pd/oom_score_adj" 2>/dev/null)
       case "$a" in ''|*[!0-9-]*) continue ;; esac
       if [ -z "$adj" ] || [ "$a" -lt "$adj" ]; then adj=$a; fi
     done
-    # 应用没在跑时 adj 为空，用 -999 标记，前端据此显示"未运行"
+    # 应用没在跑时 adj 为空，用 -9999 标记，前端据此显示"未运行"
     [ -n "$adj" ] || adj="-9999"
     [ "$adj" = "$tgt" ] && okc=$((okc + 1))
 
-    bucket=$(am get-standby-bucket "$pkg" 2>/dev/null | tr -d ' \r')
-    case "$bucket" in ''|*[!0-9]*) bucket=-1 ;; esac
-    printf 'app %s %s %s %s\n' "$pkg" "$adj" "$bucket" "$tgt"
-  done
+    printf 'app %s %s - %s\n' "$pkg" "$adj" "$tgt"
+  done <<EOF
+$list
+EOF
 
   echo "kept=$total"
   echo "kept_ok=$okc"
+}
+
+# 只查 standby bucket。每个包都要 fork 一个 app_process，没有任何批量接口，
+# 所以用有限并发（4 个一批）+ 单包 2 秒硬超时压住最坏情况。
+# 并发数不宜再高：每个 app_process 峰值要吃几十 MB，这毕竟是个内存管理工具。
+cmd_health_bucket() {
+  list=$(cmd_keep_list | awk '{print $1}')
+  [ -n "$list" ] || return 0
+
+  tmp="$MODDIR/.bucket.$$"
+  : > "$tmp" 2>/dev/null || return 0
+
+  n=0
+  for pkg in $list; do
+    ( printf '%s %s\n' "$pkg" "$(get_standby_bucket "$pkg")" >> "$tmp" ) &
+    n=$((n + 1))
+    [ $((n % 4)) -eq 0 ] && wait
+  done
+  wait
+
+  # 按名单原顺序输出：并发完成顺序是随机的，直接吐会让前端行序乱跳
+  for pkg in $list; do
+    b=$(awk -v p="$pkg" '$1==p{print $2; exit}' "$tmp" 2>/dev/null)
+    printf 'bucket %s %s\n' "$pkg" "${b:--1}"
+  done
+  rm -f "$tmp"
+}
+
+# 合并版：老前端只有 `health` 一条命令，这里把 bucket 并回 app 行
+cmd_health() {
+  bmap=$(cmd_health_bucket)
+  cmd_health_fast | while read -r line; do
+    case "$line" in
+      app\ *)
+        pkg=$(printf '%s\n' "$line" | awk '{print $2}')
+        adj=$(printf '%s\n' "$line" | awk '{print $3}')
+        tgt=$(printf '%s\n' "$line" | awk '{print $5}')
+        b=$(printf '%s\n' "$bmap" | awk -v p="$pkg" '$1=="bucket" && $2==p {print $3; exit}')
+        printf 'app %s %s %s %s\n' "$pkg" "$adj" "${b:--1}" "$tgt"
+        ;;
+      *) printf '%s\n' "$line" ;;
+    esac
+  done
 }
 
 # 输出当前配置（config.conf 的有效键值），供 WebUI 回填。
@@ -515,7 +649,8 @@ cmd_vmsave() {
   for v in "$c" "$sw" "$wm" "$mf" "$pc" "$dr" "$cp" "$ttl"; do
     case "$v" in ''|*[!0-9]*) echo "REFUSE_INVALID"; return 1 ;; esac
   done
-  [ "$c"  -ge 64 ]    && [ "$c"  -le 512 ]    || { echo "REFUSE_RANGE cache 64 512"; return 1; }
+  # 上限 1024 与 tools.sh 的档位钳制对齐：档位「原厂 ×2」本来就能算出 1024
+  [ "$c"  -ge 64 ]    && [ "$c"  -le 1024 ]   || { echo "REFUSE_RANGE cache 64 1024"; return 1; }
   [ "$sw" -ge 0 ]     && [ "$sw" -le 200 ]    || { echo "REFUSE_RANGE swappiness 0 200"; return 1; }
   [ "$wm" -ge 10 ]    && [ "$wm" -le 400 ]    || { echo "REFUSE_RANGE watermark 10 400"; return 1; }
   [ "$mf" -ge 32768 ] && [ "$mf" -le 262144 ] || { echo "REFUSE_RANGE minfree 32768 262144"; return 1; }
@@ -681,21 +816,62 @@ cmd_keep_guard() {
 # 之前首屏要发 8 次：probe + mem + caps + algs + config + procs + keep list + logs/kills。
 # 合并成一次调用后固定开销只付一遍，前端按 ###TAG 分段切。
 # 击杀记录（logcat）故意不放进来 —— 它是首屏最慢的一项，改由「日志」页按需拉。
+# 当前模块版本。给「关于」页用。
+# 页面里写死的版本号不会跟着发版走（v3.4 之前一直显示 v3.3），所以直接从
+# 已安装的 module.prop 读 —— 这是设备上唯一的真值来源。
+cmd_ver() {
+  [ -f "$MODDIR/module.prop" ] || return 0
+  v=$(sed -n 's/^version=//p' "$MODDIR/module.prop" 2>/dev/null | head -n 1)
+  c=$(sed -n 's/^versionCode=//p' "$MODDIR/module.prop" 2>/dev/null | head -n 1)
+  [ -n "$v" ] && printf 'version=%s\n' "$v"
+  [ -n "$c" ] && printf 'code=%s\n' "$c"
+}
+
+# 三个档位各自会把「缓存进程上限」写成多少。
+# 为什么需要这条命令：切档只改了 config.conf 里的 KEEP_MODE，device_config 里的值
+# 要等 apply.sh 跑完才变。前端若直接读 device_config，切档后看到的是上一档留下的旧值，
+# 表现就是「三个档位都不会改变缓存进程数值」。这里按同一套公式预算出来给前端预览。
+# ⚠ 公式必须与 tools.sh 的 apply_background_retention 保持一致，改一处要改两处。
+cmd_preset_cache() {
+  v=""
+  [ -f "$MODDIR/system_snapshot.conf" ] && \
+    v=$(grep '^am_cache_max=' "$MODDIR/system_snapshot.conf" 2>/dev/null | head -n 1 | cut -d= -f2-)
+  case "$v" in ''|null|*[!0-9]*) v=512 ;; esac
+  fac="$v"
+
+  for m in balanced strong max; do
+    case "$m" in
+      balanced) c=$fac ;;
+      max)      c=$((fac * 2)) ;;
+      *)        c=$((fac * 150 / 100)) ;;
+    esac
+    [ "$c" -gt 1024 ] && c=1024
+    [ "$c" -lt 64 ]   && c=64
+    printf '%s=%s\n' "$m" "$c"
+  done
+  printf 'orig=%s\n' "$fac"
+}
+
 cmd_boot() {
   n="${1:-60}"
   case "$n" in ''|*[!0-9]*) n=60 ;; esac
+  echo "###VER";   cmd_ver
+  echo "###CACHEP"; cmd_preset_cache
   echo "###MEM";    cmd_mem
   echo "###CAPS";   cmd_caps
   echo "###ALGS";   cmd_algs
   echo "###CONFIG"; cmd_config
   echo "###PROCS";  cmd_procs "$n"
   echo "###KEEP";   cmd_keep_list
+  echo "###NAMES";  cmd_names
   echo "###LOGS";   cmd_logs 200
   echo "###END"
 }
 
 case "$1" in
   boot)  cmd_boot "$2" ;;
+  ver)   cmd_ver ;;
+  preset) cmd_preset_cache ;;
   mem)   cmd_mem ;;
   procs) cmd_procs "$2" ;;
   kill)  cmd_kill "$2" ;;
@@ -709,7 +885,13 @@ case "$1" in
   logs)      cmd_logs "$2" ;;
   kills)     cmd_kills "$2" ;;
   apps)      cmd_apps ;;
-  health)    cmd_health ;;
+  health)
+    case "$2" in
+      fast)   cmd_health_fast ;;
+      bucket) cmd_health_bucket ;;
+      *)      cmd_health ;;
+    esac
+    ;;
   config)    cmd_config ;;
   vmsave)    shift; cmd_vmsave "$@" ;;
   restore)   cmd_restore ;;
@@ -717,6 +899,13 @@ case "$1" in
   logclear)  cmd_logclear ;;
   markremove) cmd_markremove ;;
   setcache)  cmd_setcache "$2" ;;
+  names)     cmd_names ;;
+  name)
+    case "$2" in
+      set) shift 2; cmd_name_set "$@" ;;
+      *) echo "usage: memkeep.sh name set <pkg> <name>" ; exit 1 ;;
+    esac
+    ;;
   keep)
     case "$2" in
       list)  cmd_keep_list ;;

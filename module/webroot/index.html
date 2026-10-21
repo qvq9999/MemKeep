@@ -8,10 +8,41 @@
 <meta name="theme-color" content="#f4f5f7">
 <meta name="color-scheme" content="light">
 <title>MemKeep++</title>
+<script>
+/* 状态栏沉浸（edge-to-edge）。
+   KernelSU / KernelSU-Next / SukiSU / WebUI X(MMRL) 的 WebView 会把
+   https://mui.kernelsu.org/internal/insets.css 拦截成本地生成的 CSS，
+   引入它就等于向宿主声明「本页要 edge-to-edge」：Manager 随即把 WebView 铺到
+   状态栏 / 导航栏下面，并注入 --window-inset-top / --window-inset-bottom。
+
+   为什么之前一直没沉浸：页面里用的是 env(safe-area-inset-top)，这个 Android WebView
+   根本不填（只有 iOS Safari 和部分 Chrome 场景有值），所以恒为 0，
+   「检测到安全区就钉住顶栏」这段逻辑从来没被触发过。
+
+   为什么用 link 而不是 CSS @import：@import 是阻塞渲染的，在拿不到这个虚拟资源的
+   环境（普通浏览器、老版管理器、APatch 自带 WebView）会一直等到网络超时才继续渲染，
+   等于白屏好几秒。link 是异步的，加载失败就静默忽略，退回旧的布局。 */
+(function(){
+  try{
+    var l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.href = 'https://mui.kernelsu.org/internal/insets.css';
+    l.onerror = function(){};
+    // 变量是异步到达的：加载完成后通知页面重新判断一次「是否已 true edge-to-edge」
+    l.onload = function(){
+      try{ window.dispatchEvent(new Event('mk:insets')); }catch(e){}
+    };
+    (document.head || document.documentElement).appendChild(l);
+  }catch(e){}
+})();
+</script>
 <style>
 /* ============ tokens ============ */
 :root{
-  --sat:env(safe-area-inset-top,0px);
+  /* 优先用宿主注入的安全区（edge-to-edge 生效时才有值），
+     其次回退 env()（iOS / 个别 Chromium 宿主），都没有就是 0。 */
+  --sat:var(--window-inset-top, env(safe-area-inset-top, 0px));
+  --sab:var(--window-inset-bottom, env(safe-area-inset-bottom, 0px));
   color-scheme:dark;
   --bg:#0a0b0d;
   --s1:#121418;
@@ -81,6 +112,8 @@ body{
 }
 body::before{
   content:"";position:fixed;inset:-40% 0 auto 0;height:60%;pointer-events:none;z-index:0;
+  /* 提到独立合成层：这块是 fixed + 径向渐变，不提升的话每次滚动都会跟着重绘一次 */
+  transform:translateZ(0);
   background:radial-gradient(60% 60% at 50% 0%,rgba(61,220,151,.13),transparent 72%);
 }
 html:not([data-theme="dark"]) body::before{background:radial-gradient(60% 60% at 50% 0%,rgba(15,159,104,.10),transparent 72%)}
@@ -90,13 +123,16 @@ b,strong{font-weight:600}
 
 /* ============ layout ============ */
 .app{position:relative;z-index:1;max-width:520px;margin:0 auto;min-height:100dvh}
-main{padding:0 var(--pad) calc(var(--nav-h) + 28px + env(safe-area-inset-bottom))}
-.view{display:none;animation:fade .22s ease}
+main{padding:0 var(--pad) calc(var(--nav-h) + 28px + var(--sab))}
+/* 切页不做入场动画。实测（6x CPU 降速，14 次交互）：
+   只保留一个 0.16s 的 opacity 动画就会多出 ~200 次 Commit/Layerize，
+   每帧都要 PrePaint + 提交合成；而用户要的是「点了立刻看到下一屏」。
+   去掉后切页就是一次布局 + 一次绘制，没有持续帧。 */
+.view{display:none;contain:layout style}
 .view.on{display:block}
 /* 保存条是 position:fixed 的两行按钮（约 82px）+ 导航栏 70px，
    留 96px 才不会被压住最后一行 */
 #view-tune{padding-bottom:96px}
-@keyframes fade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 
 /* ============ topbar ============ */
 /* 宿主是 edge-to-edge（内容画到状态栏下面）时，页面要自己负责那块区域：
@@ -105,7 +141,7 @@ main{padding:0 var(--pad) calc(var(--nav-h) + 28px + env(safe-area-inset-bottom)
 html.e2e .topbar{position:sticky;top:0;z-index:28;background:var(--bg)}
 .topbar{
   display:flex;align-items:center;justify-content:space-between;gap:12px;
-  padding:calc(14px + env(safe-area-inset-top)) var(--pad) 14px;
+  padding:calc(14px + var(--sat)) var(--pad) 14px;
 }
 .brand{display:flex;align-items:center;gap:10px;min-width:0}
 .mark{
@@ -126,6 +162,9 @@ html.e2e .topbar{position:sticky;top:0;z-index:28;background:var(--bg)}
 .chip .dot{width:5px;height:5px;border-radius:50%;background:var(--tx3)}
 .chip.ok{color:var(--ac);border-color:var(--ac-line);background:var(--ac-soft)}
 .chip.ok .dot{background:var(--ac);box-shadow:0 0 0 3px var(--ac-soft);animation:pulse 2.4s ease-in-out infinite}
+/* 页面切到后台时停掉常驻动画：WebView 不会因为不可见就放下合成，
+   这个呼吸灯会一直在后台每帧跑，白白占 CPU。 */
+body.page-hidden .chip.ok .dot{animation-play-state:paused}
 .chip.warn{color:var(--warn);border-color:rgba(255,176,32,.36);background:var(--warn-soft)}
 .chip.warn .dot{background:var(--warn)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
@@ -228,6 +267,8 @@ html:not([data-theme="dark"]) .ring .arc{filter:drop-shadow(0 0 7px rgba(15,159,
 .hs-grid b{display:block;font-size:14.5px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums}
 .hs-grid b.warn{color:var(--warn)}
 .hs-grid b.ok{color:var(--ac)}
+/* 骨架占位：读数没到之前用灰点，别让用户看着像卡死 */
+.hs-grid b.sk{color:var(--tx3);letter-spacing:2px;font-weight:500}
 .hs-list{border:1px solid var(--line);border-radius:13px;overflow:hidden;margin-top:11px}
 .hs-row{display:flex;align-items:center;gap:8px;padding:9px 11px;font-size:12.5px}
 .hs-row + .hs-row{border-top:1px solid var(--line)}
@@ -254,6 +295,14 @@ html:not([data-theme="dark"]) .ring .arc{filter:drop-shadow(0 0 7px rgba(15,159,
 .link-row .txt small{display:block;font-size:11px;color:var(--tx3);margin-top:2px}
 .link-row .arw{width:15px;height:15px;flex:none;stroke:var(--tx3);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 
+/* 屏外行不参与布局与绘制：日志最多 200 条、应用列表 200+ 条，
+   切页/滚动时把每一行都排一遍是这里最大的一笔开销。
+   content-visibility 在老 WebView（Chrome < 85）上会被直接忽略，不影响兼容性；
+   contain-intrinsic-size 用 auto 关键字，行高按实际渲染记住，滚动条不会跳。
+   只给这两个真正的长列表用 —— 进程列表最多 60 行，屏外元素少，
+   这层「估算尺寸 + 交集观察」的开销反而抵不过收益。 */
+.log,.arow{content-visibility:auto;contain-intrinsic-size:auto 58px}
+
 /* ============ 进程行 ============ */
 .plist{padding:2px 0 4px}
 .prow{
@@ -263,9 +312,12 @@ html:not([data-theme="dark"]) .ring .arc{filter:drop-shadow(0 0 7px rgba(15,159,
 .prow + .prow{border-top:1px solid var(--line)}
 .prow:active{background:var(--s2)}
 .prow .pbar{
-  position:absolute;left:0;top:0;bottom:0;width:var(--w,0%);
+  position:absolute;left:0;top:0;bottom:0;width:100%;
+  /* 用 scaleX 而不是 width：width 每帧都要重排整行，60 行一起动就是掉帧；
+     scaleX 只走合成，渐变会跟着一起缩放，视觉上仍是「占满 w%」。 */
+  transform:scaleX(var(--s,0));transform-origin:left center;
   background:linear-gradient(90deg,rgba(61,220,151,.12),rgba(61,220,151,.035) 72%,rgba(61,220,151,.008));
-  pointer-events:none;transition:width .4s cubic-bezier(.3,1,.4,1);
+  pointer-events:none;transition:transform .32s cubic-bezier(.3,1,.4,1);
 }
 .prow.sys .pbar{background:linear-gradient(90deg,rgba(255,255,255,.06),rgba(255,255,255,.015) 72%,transparent)}
 .prow .pmain{position:relative;z-index:1;flex:1;min-width:0}
@@ -283,11 +335,13 @@ html:not([data-theme="dark"]) .ring .arc{filter:drop-shadow(0 0 7px rgba(15,159,
   position:fixed;inset:0;z-index:35;background:var(--bg);
   display:none;flex-direction:column;
 }
-.panel.on{display:flex;animation:panelIn .26s cubic-bezier(.25,1,.4,1)}
-@keyframes panelIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+/* 面板打开同样只做透明度淡入：里面有 60 行进程/上百个应用，
+   带位移的入场动画会把整层当纹理重新上传，低端机上一次要 200ms 以上。 */
+.panel.on{display:flex;animation:panelIn .18s linear}
+@keyframes panelIn{from{opacity:.3}to{opacity:1}}
 .panel-hd{
   display:flex;align-items:center;gap:12px;flex:none;
-  padding:calc(14px + env(safe-area-inset-top)) var(--pad) 10px;
+  padding:calc(14px + var(--sat)) var(--pad) 10px;
 }
 .panel-hd h2{font-size:17px;font-weight:650;letter-spacing:-.3px;flex:1}
 .panel-hd .sub{font-size:11.5px;color:var(--tx3);margin-top:1px;font-weight:400;letter-spacing:0}
@@ -302,9 +356,9 @@ html:not([data-theme="dark"]) .ring .arc{filter:drop-shadow(0 0 7px rgba(15,159,
 .panel-search input::placeholder{color:var(--tx3)}
 .panel-filters{display:flex;gap:6px;margin:0 var(--pad) 10px;flex:none;overflow-x:auto;scrollbar-width:none}
 .panel-filters::-webkit-scrollbar{display:none}
-.panel-body{flex:1;overflow-y:auto;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+.panel-body{flex:1;overflow-y:auto;padding-bottom:calc(16px + var(--sab))}
 .panel-foot{
-  flex:none;padding:10px var(--pad) calc(12px + env(safe-area-inset-bottom));
+  flex:none;padding:10px var(--pad) calc(12px + var(--sab));
   font-size:10.5px;color:var(--tx3);text-align:center;line-height:1.5;
   border-top:1px solid var(--line);background:var(--bg);
 }
@@ -351,9 +405,12 @@ html:not([data-theme="dark"]) .ring .arc{filter:drop-shadow(0 0 7px rgba(15,159,
 .prow + .prow{border-top:1px solid var(--line)}
 .prow:active{background:var(--s2)}
 .prow .pbar{
-  position:absolute;left:0;top:0;bottom:0;width:var(--w,0%);
+  position:absolute;left:0;top:0;bottom:0;width:100%;
+  /* 用 scaleX 而不是 width：width 每帧都要重排整行，60 行一起动就是掉帧；
+     scaleX 只走合成，渐变会跟着一起缩放，视觉上仍是「占满 w%」。 */
+  transform:scaleX(var(--s,0));transform-origin:left center;
   background:linear-gradient(90deg,rgba(61,220,151,.12),rgba(61,220,151,.035) 72%,rgba(61,220,151,.008));
-  pointer-events:none;transition:width .4s cubic-bezier(.3,1,.4,1);
+  pointer-events:none;transition:transform .32s cubic-bezier(.3,1,.4,1);
 }
 .prow.sys .pbar{background:linear-gradient(90deg,rgba(255,255,255,.06),rgba(255,255,255,.015) 72%,transparent)}
 .prow .pmain{position:relative;z-index:1;flex:1;min-width:0}
@@ -371,11 +428,13 @@ html:not([data-theme="dark"]) .ring .arc{filter:drop-shadow(0 0 7px rgba(15,159,
   position:fixed;inset:0;z-index:35;background:var(--bg);
   display:none;flex-direction:column;
 }
-.panel.on{display:flex;animation:panelIn .26s cubic-bezier(.25,1,.4,1)}
-@keyframes panelIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+/* 面板打开同样只做透明度淡入：里面有 60 行进程/上百个应用，
+   带位移的入场动画会把整层当纹理重新上传，低端机上一次要 200ms 以上。 */
+.panel.on{display:flex;animation:panelIn .18s linear}
+@keyframes panelIn{from{opacity:.3}to{opacity:1}}
 .panel-hd{
   display:flex;align-items:center;gap:12px;flex:none;
-  padding:calc(14px + env(safe-area-inset-top)) var(--pad) 10px;
+  padding:calc(14px + var(--sat)) var(--pad) 10px;
 }
 .panel-hd h2{font-size:17px;font-weight:650;letter-spacing:-.3px;flex:1}
 .panel-hd .sub{font-size:11.5px;color:var(--tx3);margin-top:1px;font-weight:400;letter-spacing:0}
@@ -390,9 +449,9 @@ html:not([data-theme="dark"]) .ring .arc{filter:drop-shadow(0 0 7px rgba(15,159,
 .panel-search input::placeholder{color:var(--tx3)}
 .panel-filters{display:flex;gap:6px;margin:0 var(--pad) 10px;flex:none;overflow-x:auto;scrollbar-width:none}
 .panel-filters::-webkit-scrollbar{display:none}
-.panel-body{flex:1;overflow-y:auto;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+.panel-body{flex:1;overflow-y:auto;padding-bottom:calc(16px + var(--sab))}
 .panel-foot{
-  flex:none;padding:10px var(--pad) calc(12px + env(safe-area-inset-bottom));
+  flex:none;padding:10px var(--pad) calc(12px + var(--sab));
   font-size:10.5px;color:var(--tx3);text-align:center;line-height:1.5;
   border-top:1px solid var(--line);background:var(--bg);
 }
@@ -417,7 +476,10 @@ html:not([data-theme="dark"]) .ring .arc{filter:drop-shadow(0 0 7px rgba(15,159,
 .seg{display:flex;gap:3px;padding:3px;border-radius:13px;background:var(--s2);border:1px solid var(--line)}
 .seg button{
   flex:1;height:31px;border-radius:10px;font-size:12.5px;font-weight:550;color:var(--tx2);
-  transition:all .18s ease;white-space:nowrap;
+  /* 不用 transition:all —— 它会把 box-shadow 一起做过渡，
+     点一下档位就等于每帧重绘一次带阴影的按钮，四个按钮同时动。 */
+  transition:background .16s ease,color .16s ease;
+  white-space:nowrap;
 }
 .seg button.on{background:var(--s1);color:var(--tx);box-shadow:0 2px 8px -2px rgba(0,0,0,.5),inset 0 0 0 1px var(--line)}
 html:not([data-theme="dark"]) .seg button.on{background:#fff;box-shadow:0 1px 4px rgba(16,18,21,.12)}
@@ -496,7 +558,8 @@ html:not([data-theme="dark"]) .seg.accent button.on{background:var(--ac);color:#
 .chip-s{
   height:32px;padding:0 12px;border-radius:11px;border:1px solid var(--line);
   background:var(--s2);color:var(--tx2);font-size:12.5px;font-weight:550;
-  display:inline-flex;align-items:center;gap:5px;white-space:nowrap;transition:all .16s;
+  display:inline-flex;align-items:center;gap:5px;white-space:nowrap;
+  transition:background .14s ease,color .14s ease,border-color .14s ease;
 }
 .chip-s.on{background:var(--ac-soft);border-color:var(--ac-line);color:var(--ac)}
 .chip-s:disabled{opacity:.38}
@@ -568,7 +631,7 @@ html:not([data-theme="dark"]) .seg.accent button.on{background:var(--ac);color:#
 /* 悬浮胶囊：左右各留 14px、离底 14px，浅色下靠 --line-strong 的 1px 描边和投影浮起来。
    深色下页面底 8% 白的描边几乎看不见，单独提亮一档并压深阴影 —— 否则胶囊边界糊成一片。 */
 .tabbar{
-  position:fixed;left:14px;right:14px;bottom:calc(14px + env(safe-area-inset-bottom));
+  position:fixed;left:14px;right:14px;bottom:calc(14px + var(--sab));
   z-index:30;margin-inline:auto;
   width:auto;max-width:492px;height:64px;
   display:grid;grid-template-columns:repeat(4,1fr);align-items:center;
@@ -592,7 +655,10 @@ html[data-theme="dark"] .tabbar{
   width:calc((100% - 14px)/4);height:50px;border-radius:25px;
   background:var(--ac);box-shadow:0 8px 18px -8px var(--ac-line);
   transform:translateX(calc(var(--nav-i,0) * 100%));
-  transition:transform .36s cubic-bezier(.34,1.28,.5,1);
+  /* 0.36s 带回弹的位移会让切页后还有 20 多帧在合成；0.2s 足够看出「滑过去」。
+     will-change 让它提前成为合成层，动画期间不必反复 Layerize。 */
+  transition:transform .2s cubic-bezier(.3,.9,.4,1);
+  will-change:transform;
   pointer-events:none;
 }
 .tabbar button{
@@ -609,7 +675,7 @@ html[data-theme="dark"] .tabbar button.on svg{filter:none}
 
 /* ============ sticky save ============ */
 .savebar{
-  position:fixed;left:0;right:0;bottom:calc(var(--nav-h) + 16px + env(safe-area-inset-bottom));
+  position:fixed;left:0;right:0;bottom:calc(var(--nav-h) + 16px + var(--sab));
   margin-inline:auto;
   width:100%;max-width:520px;padding:10px var(--pad) 12px;z-index:29;
   background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--bg) 92%,transparent) 34%);
@@ -632,7 +698,7 @@ html:not([data-theme="dark"]) .savebar button{color:#fff}
 .sheet{
   position:fixed;left:50%;bottom:0;transform:translate(-50%,100%);width:100%;max-width:520px;z-index:41;
   background:var(--s1);border-radius:26px 26px 0 0;border-top:1px solid var(--line-strong);
-  padding:10px 20px calc(20px + env(safe-area-inset-bottom));
+  padding:10px 20px calc(20px + var(--sab));
   transition:transform .3s cubic-bezier(.25,1,.4,1);
 }
 .sheet.on{transform:translate(-50%,0)}
@@ -822,9 +888,9 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
         </div>
         <div class="desc" id="presetDesc">较强保活：把后台页优先压进 zram 而不是直接回收，日常多开推荐。</div>
         <div class="pstats">
-          <div><i>swappiness</i><b class="num" id="pSw">100</b></div>
-          <div><i>缓存进程上限</i><b class="num" id="pCache">256</b></div>
-          <div><i>水位系数</i><b class="num" id="pWm">90</b></div>
+          <div><i>swappiness</i><b class="num" id="pSw">—</b></div>
+          <div><i>缓存进程上限</i><b class="num" id="pCache">—</b></div>
+          <div><i>水位系数</i><b class="num" id="pWm">—</b></div>
         </div>
       </div>
 
@@ -910,7 +976,7 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
     <!-- ================= 关于 ================= -->
     <section class="view" id="view-about">
       <div class="card about-hd">
-        <div class="v"><h3 class="num">v3.3</h3><span class="chip ok" style="height:23px;font-size:11px">已是最新</span></div>
+        <div class="v"><h3 class="num" id="aboutVer">—</h3><span class="chip" id="aboutVerChip" style="height:23px;font-size:11px">未检查</span></div>
         <p>内核级内存管理模块：重建 ZRAM 压缩交换区、调整 VM 水位与 LMKD 策略，让后台应用留得更久。</p>
         <button class="about-link" data-action="update"><span id="updLabel">检查更新</span>
           <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
@@ -1097,12 +1163,15 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
   }catch(e){}
   applyTheme(params.get('theme') || savedTheme);
 
-  // 宿主真的 edge-to-edge 时，env(safe-area-inset-top) 才会大于 0。
+  // 宿主真的 edge-to-edge 时，--sat（= --window-inset-top）才会大于 0。
   // 只有这种情况才钉住顶栏 —— 否则会平白多占一条高度。
-  (function markEdgeToEdge(){
+  // insets.css 是异步加载的，所以除了启动时判一次，还要在它到位后再判一次。
+  function markEdgeToEdge(){
     const sat = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0;
     if(sat > 0) document.documentElement.classList.add('e2e');
-  })();
+  }
+  markEdgeToEdge();
+  window.addEventListener('mk:insets', markEdgeToEdge);
 
   $('#themeSeg') && $('#themeSeg').addEventListener('click', e=>{
     const b = e.target.closest('button[data-theme-val]');
@@ -1124,6 +1193,7 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
 
   /* ---------------- 设备与能力 ---------------- */
   async function loadDevice(pre){
+    lastDevAt = Date.now();
     if(!hasKsu()){
       if(DEMO){
         fillDevice({ model:'realme GT7 Pro', android:'15', sdk:'35',
@@ -1165,17 +1235,81 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
   }
 
   /* ---------------- 在线更新 ---------------- */
-  // 版本源：与 module.prop 的 versionCode 同编码（MAJOR*10000 + MINOR*100 + PATCH）
-  const APP = {version:'v3.3', code:30300};
+  // 版本号不再手写：打包时由 scripts/build.py 按 module.prop 注入（__MK_VERSION__ /
+  // __MK_CODE__ 两个占位符），运行时还会用 `ver` 子命令读一次 module.prop 校正 ——
+  // 所以「关于页显示的版本」永远等于「设备上真正装着的模块版本」。
+  // 之前这里是写死的 v3.3，发版后永远不跟着变。
+  const APP = {version:'__MK_VERSION__', code:Number('__MK_CODE__') || 0};
   const UPD_REPO = 'qvq9999/MemKeep';
   // jsDelivr 有多个边缘域名，国内经常只有其中一两个可用（实测 cdn 整段不通、gcore 正常），
-  // 所以并发打四个，谁先成功用谁。raw.githubusercontent 作为最后兜底。
+  // 所以并发打多个，谁先成功用谁。raw.githubusercontent 作为最后兜底。
   const UPD_OWNER = UPD_REPO.split('/')[0];
   const UPD_SOURCES = [
     'https://' + UPD_OWNER + '.github.io/MemKeep/update.json',        // Pages：缓存 10 分钟，发版后最快生效
     'https://gcore.jsdelivr.net/gh/' + UPD_REPO + '@main/update.json', // jsDelivr：国内多数可达
     'https://raw.githubusercontent.com/' + UPD_REPO + '/main/update.json'
   ];
+
+  function renderAboutVer(){
+    const el = $('#aboutVer');
+    if(!el) return;
+    // 占位符还在（直接打开源文件、没走打包）就显示破折号，不要把 __MK_VERSION__ 露出来
+    el.textContent = /^__MK_/.test(APP.version) ? '—' : APP.version;
+  }
+  function setVerChip(text, kind){
+    const c = $('#aboutVerChip');
+    if(!c) return;
+    c.textContent = text;
+    c.className = 'chip' + (kind ? ' ' + kind : '');
+  }
+
+  // 设备上的 module.prop 才是真值：打包注入的版本只是「WebUI 与模块同步时的兜底」。
+  // 万一有人只换了 webroot 没重刷 ZIP，这里能立刻暴露出真实版本。
+  function applyVer(text){
+    String(text || '').split(/\r?\n/).forEach(l => {
+      const i = l.indexOf('=');
+      if(i <= 0) return;
+      const k = l.slice(0, i).trim();
+      const v = l.slice(i + 1).trim();
+      if(k === 'version' && v) APP.version = v;
+      if(k === 'code') APP.code = Number(v) || 0;
+    });
+    renderAboutVer();
+  }
+
+  // 取文本。WebUI 宿主可能是 https（WebViewAssetLoader）也可能是 file://，
+  // 两种情况下目标源都带 Access-Control-Allow-Origin: *，fetch 可以直接用；
+  // 个别老 WebView 没有 fetch 时退回 XHR。
+  // 这个函数之前**根本不存在** —— checkUpdate 里调了两次，运行时报
+  // ReferenceError 被吞掉，表现就是「点了没反应」。
+  function httpGet(url, timeoutMs){
+    const limit = timeoutMs || 6000;
+    return new Promise((resolve, reject)=>{
+      let done = false;
+      const timer = setTimeout(()=>{
+        if(done) return; done = true; reject(new Error('TIMEOUT'));
+      }, limit);
+      const ok = v=>{ if(done) return; done = true; clearTimeout(timer); resolve(String(v == null ? '' : v)); };
+      const fail = e=>{ if(done) return; done = true; clearTimeout(timer); reject(e || new Error('HTTP_FAIL')); };
+
+      if(typeof fetch === 'function'){
+        fetch(url, {cache: 'no-store'})
+          .then(r => r.ok ? r.text() : Promise.reject(new Error('HTTP ' + r.status)))
+          .then(ok, fail);
+        return;
+      }
+      try{
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+        xhr.timeout = limit;
+        xhr.onload = ()=> (xhr.status >= 200 && xhr.status < 300)
+          ? ok(xhr.responseText) : fail(new Error('HTTP ' + xhr.status));
+        xhr.onerror = ()=> fail(new Error('NETWORK'));
+        xhr.ontimeout = ()=> fail(new Error('TIMEOUT'));
+        xhr.send();
+      }catch(e){ fail(e); }
+    });
+  }
 
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1321,13 +1455,15 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
     const label = $('#updLabel');
     if(btn) btn.disabled = true;
     if(label) label.textContent = '检查中…';
+    setVerChip('检查中…', '');
     try{
-      // 两个源并行取，取先回来的那份；都失败才算不可达（串行等待会让按钮转很久）
-      const got = await Promise.all(UPD_SOURCES.map(src=>httpGet(src, 5000)));
-      let raw = null;
-      for(const g of got){ if(g){ raw = g; break; } }
+      // 每个源单独兜底：之前用的是裸 Promise.all，只要有一个 reject 整条链就炸，
+      // 另一个本来能用的源也白取了。
+      const got = await Promise.all(UPD_SOURCES.map(src => httpGet(src, 6000).catch(()=>null)));
+      const raw = got.filter(Boolean)[0] || null;
 
       if(!raw){
+        setVerChip('连不上更新源', 'warn');
         openSheet({
           title: '暂时连不上更新源',
           html: '<p>模块已配置在线更新地址，但这次没能取回版本信息。</p>' +
@@ -1342,18 +1478,33 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
 
       let info;
       try{ info = JSON.parse(raw); }
-      catch(e){ toast('更新信息格式异常'); return; }
+      catch(e){ setVerChip('更新源格式异常', 'warn'); toast('更新信息格式异常'); return; }
 
-      const remote = Number(info.versionCode) || 0;
-      if(remote <= APP.code){
-        toast(remote === APP.code ? ('已是最新版本 ' + APP.version) : '当前版本比线上更新（开发版）');
+      // 读不到当前版本时不能比大小（0 会让任何线上版本都算「更新」）
+      if(!APP.code){
+        setVerChip('读不到当前版本', 'warn');
+        openSheet({
+          title: '读不到当前版本',
+          html: '<p>没能从模块目录读到 <span class="mono">module.prop</span>，无法判断是否需要更新。</p>' +
+                '<p>通常是 WebUI 与模块本体版本不一致（只换了 webroot 却没重刷 ZIP）。重刷一次模块包即可。</p>',
+          ok: '知道了', single: true
+        });
         return;
       }
 
+      const remote = Number(info.versionCode) || 0;
+      if(remote <= APP.code){
+        const same = remote === APP.code;
+        setVerChip(same ? '已是最新' : '开发版', same ? 'ok' : '');
+        toast(same ? ('已是最新版本 ' + APP.version) : ('当前 ' + APP.version + ' 比线上新（开发版）'));
+        return;
+      }
+
+      setVerChip('有新版本', 'warn');
       let log = '';
       if(info.changelog){
         try{
-          const txt = await httpGet(info.changelog, 5000);
+          const txt = await httpGet(info.changelog, 6000);
           if(txt){
             const lines = txt.trim().split(/\r?\n/);
             log = lines.slice(0, 26)
@@ -1375,7 +1526,13 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
         cancel: '下载到本地',
         onCancel: ()=> openUrl(info.zipUrl || ('https://github.com/' + UPD_REPO + '/releases'))
       });
-    } finally {
+    }catch(e){
+      // 之前这里只有 finally：异常被静默吞掉，用户只看到按钮闪一下 —— 
+      // 而 httpGet 当时压根没定义，每次点都走这条路。
+      console.warn('[update]', e && (e.message || e));
+      setVerChip('检查失败', 'warn');
+      toast('检查更新失败：' + ((e && e.message) || '未知错误'));
+    }finally{
       if(btn) btn.disabled = false;
       if(label) label.textContent = '检查更新';
     }
@@ -1385,25 +1542,44 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
   const TABS = ['monitor','tune','logs','about'];
   // 击杀记录只在第一次进「日志」页时读一次 logcat，之后靠下拉刷新/刷新按钮更新
   let killsLoaded = false;
+  let lastLogsAt = 0, lastDevAt = 0;   // 切页节流：日志 10s、设备 30s
+  let curTab = null;
   function setTab(name){
     if(!TABS.includes(name)) name = 'monitor';
+    const same = name === curTab;
+    curTab = name;
     TABS.forEach(t=>{
       $('#view-'+t).classList.toggle('on', t === name);
       $('.tabbar button[data-tab="'+t+'"]').classList.toggle('on', t === name);
     });
     $('#saveBar').classList.toggle('show', name === 'tune');
-    window.scrollTo(0,0);
     // 滑块位置：写一个索引，CSS 用 translateX(calc(var(--nav-i) * 100%)) 跟过去
     const nav = $('#tabbar');
     if(nav) nav.style.setProperty('--nav-i', String(TABS.indexOf(name)));
+    // 点的是当前这一页：只保证 DOM 状态正确，不重复取数、不重置滚动位置
+    if(same) return;
+    // 回到顶部放到下一帧：同步 scrollTo 会立刻强制一次全页布局，
+    // 正好和 display 切换撞在一起，表现出来就是「点完顿一下才动」。
+    requestAnimationFrame(()=>window.scrollTo(0,0));
     // 切页时补一次数据：日志和关于页的数据只在需要时才拉，避免开机时拖慢首屏
     if(name === 'logs' && (BRIDGE_STATE === 'ok' || BRIDGE_STATE === 'demo')){
-      loadLogs();
+      // 日志页是四个页面里最重的（真机最多 200 条，每条三层 div）。
+      // 原来每次切进来都无条件重拉 + 整表重建，等于「切到日志就要卡一下」。
+      // 10 秒内的重复进入直接复用上一次的结果，下拉/刷新按钮仍可强制更新。
+      if(Date.now() - lastLogsAt > 10000) loadLogs();
       // 击杀记录不在开机路径上：它要 dump 两个 logcat 缓冲，是最慢的一项
       if(!killsLoaded){ killsLoaded = true; loadKills(); }
     }
-    if(name === 'about' && (BRIDGE_STATE === 'ok' || BRIDGE_STATE === 'demo')) loadDevice();
-    if(name === 'monitor' && (BRIDGE_STATE === 'ok' || BRIDGE_STATE === 'demo')) loadMem();
+    if(name === 'about' && (BRIDGE_STATE === 'ok' || BRIDGE_STATE === 'demo')){
+      // 机型 / 内核 / root 方案基本不变，30 秒内不重复读
+      if(Date.now() - lastDevAt > 30000) loadDevice();
+    }
+    if(name === 'monitor' && (BRIDGE_STATE === 'ok' || BRIDGE_STATE === 'demo')){
+      // 1.5 秒内刚拉过就跳过：liveTimer 每 3 秒本来就会刷一次，
+      // 切页时再发一条 root shell（真机 100–300ms）正好卡在切换动画上，
+      // 体感就是「点了要顿一下才出来」。
+      if(Date.now() - lastMemAt > 1500) loadMem();
+    }
   }
   $('#tabbar').addEventListener('click', e=>{
     const b = e.target.closest('button[data-tab]');
@@ -1467,13 +1643,32 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
   // 三档不再是三组硬编码数字，而是「原厂值 + 偏移」：
   // 缓存上限与 lmkd 阈值都跟着设备原厂值走，各家 ROM 差异很大，写死必然有机器被打反向优化。
   // cache 只放显示用的倍率，真实值从 device_config 读回来再展示。
+  // 展示用的档位说明。缓存上限不在这里给固定数字：它跟原厂值与物理内存走，
+  // 「×1.5」这类倍数文案会和实际值打架，统一由 syncPstats 显示内核里的真实值。
   const PRESETS = {
-    balanced: {desc:'贴近原厂：lmkd 阈值不动，只把 swappiness 抬到 90，功耗优先。', sw:90,  cache:'原厂', wm:100},
-    strong:   {desc:'日常多开推荐：水位提前、lmkd 延后动手、缓存上限 ×1.5，并保护最近 1 秒的工作集。', sw:110, cache:'×1.5', wm:125},
-    max:      {desc:'极限留存：水位 150、lmkd ×1.8、工作集保护 2 秒；功耗与偶发卡顿风险上升。', sw:130, cache:'×2', wm:150}
+    balanced: {desc:'贴近原厂：lmkd 阈值不动，只把 swappiness 抬到 90，功耗优先。', sw:90,  wm:100},
+    strong:   {desc:'日常多开推荐：水位提前、lmkd 延后动手、缓存上限 ×1.5，并保护最近 1 秒的工作集。', sw:110, wm:125},
+    max:      {desc:'极限留存：水位 150、lmkd ×1.8、工作集保护 2 秒；功耗与偶发卡顿风险上升。', sw:130, wm:150}
   };
 
   /* ---------------- 保活强度 ---------------- */
+  // 三个档位各自会把「缓存进程上限」写成多少 —— 由后端 `preset` 子命令按
+  // tools.sh 的同一套公式预算（原厂 ×1 / ×1.5 / ×2，钳制 64–1024）。
+  // 切档时用它立刻更新卡片数字：不能去读 device_config，那边的值要等 apply.sh
+  // 跑完才变，之前直接读的结果就是「切了档数字纹丝不动」。
+  let PRESET_CACHE = {};
+  function applyCachePreset(text){
+    const m = {};
+    String(text || '').split(/\r?\n/).forEach(l => {
+      const i = l.indexOf('=');
+      if(i <= 0) return;
+      const k = l.slice(0, i).trim();
+      const v = l.slice(i + 1).trim();
+      if(/^\d+$/.test(v)) m[k] = Number(v);
+    });
+    if(Object.keys(m).length) PRESET_CACHE = m;
+  }
+
   function applyPreset(key, silent){
     const seg = $('#presetSeg');
     const customBtn = seg ? seg.querySelector('[data-preset="custom"]') : null;
@@ -1494,16 +1689,27 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
     $$('#presetSeg button').forEach(x=>x.classList.toggle('on', x.dataset.preset === key));
     $('#presetDesc').textContent = p.desc;
     $('#pSw').textContent = p.sw;
-    $('#pCache').textContent = p.cache;
     $('#pWm').textContent = p.wm;
-    // 选回档位时，手动覆盖一并失效
+    // 缓存上限不再写「×1.5」这种倍数文案：同一个元素 syncPstats 会写实际数字，
+    // 谁后跑谁生效，最终显示的到底是倍数还是数字完全看时序 —— 用户点进去
+    // 编辑时看到的初始值也因此和卡片上不一致。统一交给 syncPstats 写真实值。
     currentMode = key;          // 保存时要写回 KEEP_MODE，不记就会写错档
     vmCustomKeys = {};
     // 合并而不是整体替换：缓存上限 / min_free_kbytes 是从内核读回来的真实值，
     // 用预设里的占位数字盖掉会让界面显示与设备实际不符
     vmValues = Object.assign({}, vmValues, VM_PRESET[key] || {});
+    // 缓存上限取后端的档位预算值：切档立刻能看到数字变化，
+    // 真实写入仍然发生在「保存并应用」时。
+    if(PRESET_CACHE[key] != null) vmValues['max_cached_processes'] = String(PRESET_CACHE[key]);
     renderVmList();
-    if(!silent) markDirty();
+    syncPstats();
+    if(!silent){
+      markDirty();
+      // 这里**不要**读 vms：切档只改了 config.conf 里的 KEEP_MODE，
+      // device_config 里的缓存上限要等「保存并应用」（跑 apply.sh）才会变，
+      // 此刻读回来还是旧值，白白多一次 root shell（真机 100–300ms）+ 两次 DOM 重建。
+      // 保存成功后统一刷新一次即可。
+    }
   }
   $('#presetSeg').addEventListener('click', e=>{
     const b = e.target.closest('button[data-preset]');
@@ -1665,7 +1871,9 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
   // 这些值不是独立可调的：tools.sh 按「保活强度」档位整组写入，
   // 所以这里做成只读明细 —— 告诉用户当前到底改了什么，而不是给一堆能拧坏的旋钮。
   const VM_DEFS = [
-    { k:'max_cached_processes', label:'缓存进程上限', min:64, max:512, step:32,
+    // 上限 1024 与后端一致：tools.sh 的档位按「原厂 ×1 / ×1.5 / ×2」算，
+    // 原厂 512 的机器到「极限」档就是 1024，手动滑块不能比档位能到的地方更窄。
+    { k:'max_cached_processes', label:'缓存进程上限', min:64, max:1024, step:32,
       desc:'系统最多保留多少个后台缓存进程。值越大越耐多开，也越吃内存；写入 ActivityManager，保存即生效。' },
     { k:'min_ttl_ms', label:'工作集保护', min:0, max:3000, step:250, unit:'ms',
       desc:'最近这么多毫秒内访问过的页不许淘汰，直接决定「切回应用要不要重读」。0 = 关闭；1000 已能消掉可感的抖动，调太高会让内核更倾向于整个杀应用。' },
@@ -1723,7 +1931,21 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
         '<p>' + esc(d.label) + ' · ' + esc(d.desc) + '</p>' +
       '</button>';
     }).join('') +
-    '<div class="vm-foot">点任意一项可单独调整；改动后保活强度会自动切到「自定义」。' + '缓存上限与 min_free_kbytes 由后端按原厂值 / 物理内存计算，切档后需重启才会刷新成新值。</div>';
+    '<div class="vm-foot">点任意一项可单独调整；改动后保活强度会自动切到「自定义」。' +
+      cacheFootNote() + '</div>';
+  }
+
+  // 缓存上限的脚注。三档算出来一样时（原厂值本身就顶到 1024）必须说清楚，
+  // 否则用户会以为档位坏了 —— 而那正是「三档都是 1024」的由来。
+  function cacheFootNote(){
+    const c = PRESET_CACHE;
+    if(c.balanced == null) return '缓存上限由后端按原厂值计算，保存并应用后写入系统。';
+    if(c.balanced === c.strong && c.strong === c.max){
+      return '缓存上限三档都是 ' + c.balanced + '：本机原厂值（' + c.orig + '）已经到系统上限，' +
+             '这一项调不高了。三档的实际差异在 swappiness、内存水位、工作集保护与 lmkd 阈值上。';
+    }
+    return '缓存上限：均衡 ' + c.balanced + ' · 增强 ' + c.strong + ' · 极限 ' + c.max +
+           '（原厂 ' + c.orig + '），保存并应用后写入系统。';
   }
 
   // 手动改过任意一项后，上方的保活强度切到「自定义」
@@ -1747,7 +1969,13 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
 
   function openVmEdit(def){
     let v = Math.round(+vmValues[def.k] || 0);
-    if(def.k === 'min_free_kbytes' && !v) v = 65536;
+    // 只有「值缺失」时才给默认起点。已有值但超出当前区间时只夹到边界，
+    // 绝不跳到另一个数 —— 否则用户只是打开看一眼再点保存，就把真实值改掉了
+    // （上一版就是在 1024 这种超出旧上限的值上跳到了 192）。
+    if(!v && def.k === 'min_free_kbytes') v = 65536;
+    if(!v) v = def.k === 'max_cached_processes' ? 256 : def.min;
+    if(v < def.min) v = def.min;
+    if(v > def.max) v = def.max;
     const step = def.step || 1;
     const shown = () => def.toMb ? Math.round(v / 1024) : v;
     const unit = def.unit || '';
@@ -1832,15 +2060,21 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
     vmValues[def.k] = String(v);
 
     const m = matchPreset();
-    if(m){
+    // 档位判定只看那 6 个 VM 参数，缓存上限不在其中（它跟着设备原厂值走）。
+    // 所以哪怕 6 项仍与某档一致，只要改过缓存上限就得保留「已改」标记 ——
+    // 否则保存整组时 vmCustomKeys 为空会走 vmreset 分支，把 AM_CACHE_MAX 抹成 0，
+    // 用户手动调的那个值就白改了。
+    const keepCustom = def.k === 'max_cached_processes';
+    if(m && !keepCustom){
       // 数值与档位完全一致 → 回到档位，清掉「已改」标记
       vmCustomKeys = {};
       reflectPreset(m);
       toast(def.label + ' 已改为 ' + vmFormat(def.k, v) + '，与「' + ({balanced:'均衡',strong:'增强',max:'极限'}[m]) + '」档位一致');
     }else{
       vmCustomKeys[def.k] = true;
-      enterCustomMode();
-      toast(def.label + ' 已改为 ' + vmFormat(def.k, v));
+      // 只改了缓存上限（档位参数没动）时不切「自定义」，档位本身还是那个档位
+      if(!m) enterCustomMode();
+      toast(def.label + ' 已改为 ' + vmFormat(def.k, v) + '，保存并应用后写入系统');
     }
     renderVmList();
     syncPstats();
@@ -1850,21 +2084,35 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
   async function resetVm(def){
     if(hasKsu()){
       try{ await shell('vmreset'); }catch(e){}
+      // 只写 config.conf 是不够的：device_config 里的缓存上限要等 apply.sh 跑完才变，
+      // 不真正应用一次，用户点完「恢复档位」看到的数字一点没动。
+      try{ await exec('sh ' + shq(MODDIR + '/apply.sh'), 20000); }
+      catch(e){ console.warn('[apply]', e && (e.message || e)); }
     }
     vmCustomKeys = {};
-    const mode = $('#presetSeg button.on');
-    const key = mode && mode.dataset.preset !== 'custom' ? mode.dataset.preset : 'strong';
-    vmValues = Object.assign({}, VM_PRESET[key] || VM_PRESET.strong);
+    // 手动改过的缓存上限必须先删掉：下面是 Object.assign 合并，不删这个键会保留旧值，
+    // 界面看着「恢复了」其实还是改之前那个数 —— 这就是「点恢复档位没变化」的直接原因。
+    delete vmValues['max_cached_processes'];
+    const key = (currentMode && VM_PRESET[currentMode]) ? currentMode : 'strong';
+    // 合并而不是替换：min_free_kbytes 是按物理内存算出来的，档位表里没有这一项
+    vmValues = Object.assign({}, vmValues, VM_PRESET[key] || VM_PRESET.strong);
+    if(PRESET_CACHE[key] != null) vmValues['max_cached_processes'] = String(PRESET_CACHE[key]);
     renderVmList();
     syncPstats();
-    applyPreset(key);
+    applyPreset(key, true);
+    // apply 之后读回真实值（缓存上限、保留空闲都是设备算出来的）
+    if(hasKsu()) loadVms();
     toast('已恢复为「' + ({balanced:'均衡',strong:'增强',max:'极限'}[key] || key) + '」档位值');
   }
 
   async function loadVms(){
     if(!hasKsu()){
-      vmValues = DEMO ? Object.assign({}, VM_PRESET.strong) : {};
+      // 演示数据只补「缺的那些键」，不能覆盖当前档位的参数 ——
+      // 否则切到「极限」再展开高级设置，列表会整体跳回「增强」的值，
+      // 保存时 matchPreset 还会误判成「增强」。
+      if(DEMO) vmValues = Object.assign({}, VM_PRESET.strong, vmValues);
       renderVmList();
+      syncPstats();
       return;
     }
     try{
@@ -1874,9 +2122,12 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
         const i = l.indexOf('=');
         if(i > 0) m[l.slice(0, i)] = l.slice(i + 1);
       });
-      if(Object.keys(m).length) vmValues = m;
+      // 合并而不是整体替换：vms 只输出内核里存在的键，
+      // 某个键读不到（比如 device_config 被禁用）时不能用它把已有值抹掉
+      if(Object.keys(m).length) vmValues = Object.assign({}, vmValues, m);
     }catch(e){ console.warn('[vms]', e && (e.message || e)); }
     renderVmList();
+    syncPstats();
   }
 
   $('.vm-toggle').addEventListener('click', ()=>{
@@ -1964,19 +2215,35 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
 
       // 高级设置：自定义过就整组写入，否则恢复跟随档位
       if(Object.keys(vmCustomKeys).length){
-        const v = k => String(vmValues[k] || 0);
-        const cmd = 'vmsave ' + [v('max_cached_processes'), v('swappiness'), v('watermark_scale_factor'),
-          v('min_free_kbytes'), v('page-cluster'), v('dirty_ratio'), v('compaction_proactiveness'),
-          v('min_ttl_ms')].join(' ');
-        const r = await shell(cmd, 20000);
+        // 不能用 `|| 0` 兜底：min_free_kbytes 的合法下限是 32768，
+        // 参数还没读回来时补 0 会让后端整组 REFUSE_RANGE，保存直接失败。
+        // 缺值就明确报错，别拿一个假数字去写内核参数。
+        const v = k => (vmValues[k] == null || vmValues[k] === '') ? '' : String(vmValues[k]);
+        const args = ['max_cached_processes', 'swappiness', 'watermark_scale_factor',
+          'min_free_kbytes', 'page-cluster', 'dirty_ratio', 'compaction_proactiveness',
+          'min_ttl_ms'].map(v);
+        if(args.some(x => x === '')){
+          throw new Error('高级参数还没读取完，请稍后重试');
+        }
+        const r = await shell('vmsave ' + args.join(' '), 20000);
         if(!/^OK/.test(String(r).trim())) throw new Error(String(r).trim());
       }else{
         await shell('vmreset', 10000);
       }
 
+      // 写盘之后必须真正应用一次。apply.sh 里的 apply_vm_tuning +
+      // apply_background_retention 才会把档位算出来的 max_cached_processes
+      // 写进 device_config —— 之前只写了 config.conf 就宣布「已生效」，
+      // 实际上缓存上限一直是开机时那一次的值，切档等于没生效。
+      // （apply_lmk_props 动的是 ro.lmk.*，lmkd 已在运行，那部分仍要重启。）
+      try{ await exec('sh ' + shq(MODDIR + '/apply.sh'), 20000); }
+      catch(e){ console.warn('[apply]', e && (e.message || e)); }
+
       markApplied();
       $('#saveSub').textContent = '已写入 config.conf';
       toast('已保存 · ZRAM 变更重启后生效');
+      // 保存时已经把参数写进内核 / device_config，重新读一次让卡片上的数字跟上
+      if(BRIDGE_STATE === 'ok') loadVms();
       // 2.4 秒后回到常态文案；期间用户若又改了东西，重算会给出正确的待应用数
       setTimeout(recountDirty, 2400);
     }catch(e){
@@ -2038,9 +2305,17 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
           'compaction_proactiveness': m.VM_COMPACT,
           'min_ttl_ms': m.VM_MIN_TTL
         };
-        Object.keys(map).forEach(k=>{ if(map[k] != null) vmValues[k] = map[k]; });
         vmCustomKeys = {};
-        Object.keys(map).forEach(k=>{ if(map[k] != null) vmCustomKeys[k] = true; });
+        Object.keys(map).forEach(k=>{
+          const v = map[k];
+          if(v == null) return;
+          // AM_CACHE_MAX=0 是「跟随档位」的哨兵值，不是真的上限为 0 ——
+          // 照抄进来会让卡片显示 0、还会被标成「已改」。其余项 0 是合法值
+          // （page-cluster / compaction / min_ttl 都允许 0）。
+          if(k === 'max_cached_processes' && String(v) === '0') return;
+          vmValues[k] = v;
+          vmCustomKeys[k] = true;
+        });
         enterCustomMode();
         syncPstats();
         renderVmList();
@@ -2097,7 +2372,7 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
       const m = /(\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})\.\d+.*?Kill '([^']+)'(?:.*?oom_score_adj\s+(-?\d+))?(?:.*?to free (\d+)\s*kB)?/i.exec(t);
       if(!m) return;
       const clock = m[2], pkg = m[3], adj = m[4], freed = m[5];
-      let msg = (LABELS[pkg] || pkg) + (LABELS[pkg] ? ' (' + pkg + ')' : '');
+      let msg = nameOrPkg(pkg) + (appName(pkg) ? ' (' + pkg + ')' : '');
       if(adj != null) msg += ' · oom ' + adj;
       if(freed) msg += ' · 释放 ' + Math.round(+freed / 1024) + ' MB';
       out.push({ t: clock, lv: 'kill', tag: 'KILL', msg: msg });
@@ -2123,6 +2398,13 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
     }
     list = list.slice().reverse();   // 新的在上
 
+    // 数据没变就不重建：切页 / 重复点同一个筛选最容易触发整表重画，
+    // 200 条日志每条三层 div，一次重建在真机上就是十几毫秒。
+    const sig = logFilter + '#' + list.length + '#' + KILLS.length + '#' +
+                (list[0] ? list[0].t + '|' + list[0].msg : '') + '#' +
+                (list.length ? list[list.length - 1].t : '');
+    if(sameSig('logs', sig)) return;
+
     if(!list.length){
       let why;
       if(!hasKsu() && !DEMO) why = '无法连接模块执行环境，读不到日志。';
@@ -2130,21 +2412,20 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
       else why = '还没有日志。开机跑过一次 service.sh 之后才会写入。';
       box.innerHTML = '<div style="padding:26px 16px;text-align:center;color:var(--tx3);font-size:12.5px;line-height:1.7;white-space:pre-line">' + esc(why) + '</div>';
     }else{
+      // key=value 高亮原来是在写进 DOM 之后再逐个元素读一次 innerHTML 改一次，
+      // N 条日志就是 N 次「写 → 失效布局 → 读」，日志页一进去就卡。
+      // 改成在拼字符串时直接替换，只做一次字符串运算，不碰 DOM。
+      const hi = logFilter === 'kill' ? esc : (s => esc(s).replace(
+        /(size|algorithm|mode|min_free_kbytes|am_cache)=([^\s,;]+)/g, '$1=<em>$2</em>'));
       box.innerHTML = list.map(l =>
         '<div class="log ' + (lvClass[l.lv] || '') + '">' +
           '<div class="rail"><i></i></div>' +
           '<div class="body">' +
             '<div class="meta"><span class="tm">' + esc(l.t) + '</span><span class="tag">' + esc(l.tag) + '</span></div>' +
-            '<div class="msg">' + esc(l.msg) + '</div>' +
+            '<div class="msg">' + hi(l.msg) + '</div>' +
           '</div>' +
         '</div>'
       ).join('');
-      // 只有模块日志需要把 key=value 高亮；击杀记录格式不同，不做替换
-      if(logFilter !== 'kill'){
-        $$('#logList .msg').forEach(el => {
-          el.innerHTML = el.innerHTML.replace(/(size|algorithm|mode|min_free_kbytes|am_cache)=([^\s,;]+)/g, '$1=<em>$2</em>');
-        });
-      }
     }
 
     const allU = $('.logbar button[data-filter="all"] u');
@@ -2167,6 +2448,7 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
   }
 
   async function loadLogs(pre){
+    lastLogsAt = Date.now();
     if(!hasKsu()){
       LOGS = DEMO ? parseLogs(DEMO_LOG_TEXT) : [];
       KILLS = DEMO ? parseKills(DEMO_KILL_TEXT) : [];
@@ -2226,34 +2508,166 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
 
   // 常见应用的中文名。系统给不出应用名（要读 APK 资源，太慢），
   // 没有 label 的接口就只能靠这张表，查不到就显示包名 —— 不猜。
+  // 应用名表：精确包名 → 中文名。
+  // 为什么是内置表而不是「自动读系统」：Android 没有任何 CLI 能给出本地化应用名。
+  // `pm list packages` 只有包名；`dumpsys package` / `pm dump` 的 ApplicationInfo
+  // 段不带 label（label 只存在 APK 的 resources.arsc 里，且多数是资源引用，
+  // 要二进制解析 arsc 才能出字符串）。所以主流应用内置在这里，没命中的在界面里
+  // 手动命名，存进模块目录的 app_names.conf（优先级高于本表）。
+  // 维护约定：只做精确相等匹配，写错包名只会不命中，不会把 A 标成 B。
   const LABELS = {
-    'com.tencent.mm': '微信',
-    'com.tencent.mobileqq': 'QQ',
-    'com.tencent.wework': '企业微信',
-    'com.tencent.weread': '微信读书',
-    'com.tencent.qqlive': '腾讯视频',
-    'com.tencent.tmgp.sgame': '王者荣耀',
-    'com.tencent.tmgp.pubgmhd': '和平精英',
-    'com.ss.android.ugc.aweme': '抖音',
-    'com.ss.android.ugc.aweme.lite': '抖音极速版',
-    'com.smile.gifmaker': '快手',
-    'com.eg.android.AlipayGphone': '支付宝',
-    'com.taobao.taobao': '淘宝',
-    'com.jingdong.app.mall': '京东',
-    'com.xunmeng.pinduoduo': '拼多多',
-    'com.xingin.xhs': '小红书',
-    'com.sina.weibo': '微博',
-    'com.autonavi.minimap': '高德地图',
-    'com.baidu.BaiduMap': '百度地图',
-    'com.netease.cloudmusic': '网易云音乐',
-    'tv.danmaku.bili': '哔哩哔哩',
-    'com.qiyi.video': '爱奇艺',
-    'com.alibaba.android.rimet': '钉钉',
-    'com.zhihu.android': '知乎',
-    'com.dragon.read': '番茄小说',
-    'com.miui.home': '系统桌面',
-    'com.android.systemui': '状态栏'
+    // ---- 社交 / 通讯 ----
+    'com.tencent.mm': '微信', 'com.tencent.mobileqq': 'QQ', 'com.tencent.tim': 'TIM',
+    'com.tencent.wework': '企业微信', 'com.alibaba.android.rimet': '钉钉',
+    'com.ss.android.lark': '飞书', 'com.tencent.androidqqmail': 'QQ邮箱',
+    'com.sina.weibo': '微博', 'com.xingin.xhs': '小红书', 'cn.soulapp.android': 'Soul',
+    'com.immomo.momo': '陌陌', 'com.p1.mobile.putong': '探探',
+    'com.zhihu.android': '知乎', 'com.douban.frodo': '豆瓣',
+    'org.telegram.messenger': 'Telegram', 'com.whatsapp': 'WhatsApp',
+    'com.discord': 'Discord', 'com.facebook.katana': 'Facebook',
+    'com.instagram.android': 'Instagram', 'com.twitter.android': 'X',
+    // ---- 音视频 / 阅读 ----
+    'com.ss.android.ugc.aweme': '抖音', 'com.ss.android.ugc.aweme.lite': '抖音极速版',
+    'com.ss.android.ugc.live': '抖音火山版', 'com.smile.gifmaker': '快手',
+    'com.kuaishou.nebula': '快手极速版', 'tv.danmaku.bili': '哔哩哔哩',
+    'com.tencent.qqlive': '腾讯视频', 'com.qiyi.video': '爱奇艺', 'com.youku.phone': '优酷',
+    'com.hunantv.imgo.activity': '芒果TV', 'com.ss.android.article.video': '西瓜视频',
+    'com.ss.android.article.news': '今日头条',
+    'com.netease.cloudmusic': '网易云音乐', 'com.tencent.qqmusic': 'QQ音乐',
+    'com.kugou.android': '酷狗音乐', 'cn.kuwo.player': '酷我音乐',
+    'com.ximalaya.ting.android': '喜马拉雅', 'com.spotify.music': 'Spotify',
+    'com.google.android.youtube': 'YouTube',
+    'com.google.android.apps.youtube.music': 'YouTube Music',
+    'com.tencent.weread': '微信读书', 'com.dragon.read': '番茄小说',
+    'com.qidian.QDReader': '起点读书',
+    // ---- 电商 / 生活 ----
+    'com.taobao.taobao': '淘宝', 'com.tmall.wireless': '天猫',
+    'com.jingdong.app.mall': '京东', 'com.xunmeng.pinduoduo': '拼多多',
+    'com.taobao.idlefish': '闲鱼', 'com.suning.mobile.ebuy': '苏宁易购',
+    'com.achievo.vipshop': '唯品会', 'com.shizhuang.duapp': '得物',
+    'com.alibaba.wireless': '1688', 'com.sankuai.meituan': '美团',
+    'me.ele': '饿了么', 'com.dianping.v1': '大众点评',
+    'com.taobao.trip': '飞猪', 'ctrip.android.view': '携程', 'com.Qunar': '去哪儿',
+    'com.autonavi.minimap': '高德地图', 'com.baidu.BaiduMap': '百度地图',
+    'com.tencent.map': '腾讯地图', 'com.sdu.didi.psnger': '滴滴出行',
+    'com.jingyao.easybike': '哈啰', 'com.MobileTicket': '铁路12306',
+    'com.hpbr.bosszhipin': 'BOSS直聘', 'com.lianjia.beike': '贝壳找房',
+    // ---- 金融 / 支付 ----
+    'com.eg.android.AlipayGphone': '支付宝', 'com.unionpay': '云闪付',
+    'com.icbc': '工商银行', 'com.chinamworld.main': '建设银行',
+    'com.android.bankabc': '农业银行', 'com.chinamworld.bocmbci': '中国银行',
+    'com.cmbchina.ccd.pluto.cmbActivity': '招商银行',
+    // ---- 工具 / 办公 ----
+    'cn.wps.moffice_eng': 'WPS Office', 'com.quark.browser': '夸克',
+    'com.UCMobile': 'UC浏览器', 'com.tencent.mtt': 'QQ浏览器',
+    'com.baidu.searchbox': '百度', 'com.android.chrome': 'Chrome',
+    'com.baidu.netdisk': '百度网盘', 'com.xunlei.downloadprovider': '迅雷',
+    'com.moji.mjweather': '墨迹天气', 'com.tencent.wetype': '微信输入法',
+    'com.sohu.inputmethod.sogou': '搜狗输入法', 'com.baidu.input': '百度输入法',
+    'com.iflytek.inputmethod': '讯飞输入法',
+    'com.google.android.inputmethod.latin': 'Gboard',
+    'com.microsoft.office.outlook': 'Outlook', 'com.adobe.reader': 'Acrobat',
+    'com.termux': 'Termux', 'org.mozilla.firefox': 'Firefox',
+    'com.microsoft.emmx': 'Edge', 'com.opera.browser': 'Opera',
+    // ---- 游戏 ----
+    'com.tencent.tmgp.sgame': '王者荣耀', 'com.tencent.tmgp.pubgmhd': '和平精英',
+    'com.tencent.tmgp.cf': '穿越火线', 'com.tencent.jkchess': '金铲铲之战',
+    'com.tencent.lolm': '英雄联盟手游', 'com.miHoYo.Yuanshen': '原神',
+    'com.miHoYo.hkrpg': '崩坏：星穹铁道', 'com.miHoYo.bh3': '崩坏3',
+    'com.netease.party': '蛋仔派对', 'com.happyelements.AndroidAnimal': '开心消消乐',
+    'com.supercell.clashofclans': '部落冲突', 'com.mojang.minecraftpe': 'Minecraft',
+    // ---- 系统 / 桌管（小米）----
+    'com.miui.home': '系统桌面', 'com.miui.securitycenter': '安全中心',
+    'com.miui.gallery': '相册', 'com.miui.calculator': '计算器',
+    'com.miui.notes': '便签', 'com.miui.weather2': '天气', 'com.miui.player': '音乐',
+    'com.miui.video': '视频', 'com.miui.fm': '收音机', 'com.miui.compass': '指南针',
+    'com.miui.screenrecorder': '屏幕录制', 'com.xiaomi.market': '应用商店',
+    'com.xiaomi.mipicks': '应用商店', 'com.xiaomi.smarthome': '米家',
+    'com.xiaomi.hm.health': '小米运动健康', 'com.xiaomi.scanner': '扫一扫',
+    // ---- 系统 / 桌管（华为 / 荣耀）----
+    'com.huawei.android.launcher': '桌面', 'com.huawei.systemmanager': '手机管家',
+    'com.huawei.appmarket': '应用市场', 'com.huawei.camera': '相机',
+    'com.huawei.gallery': '图库', 'com.huawei.music': '音乐',
+    'com.huawei.health': '运动健康',
+    // ---- 系统 / 桌管（OPPO / 一加 / realme）----
+    'com.oppo.launcher': '桌面', 'com.oplus.launcher': '桌面',
+    'com.coloros.safecenter': '手机管家', 'com.oppo.market': '软件商店',
+    'com.heytap.market': '软件商店', 'com.heytap.browser': '浏览器',
+    // ---- 系统 / 桌管（vivo / iQOO）----
+    'com.vivo.launcher': '桌面', 'com.vivo.appstore': '应用商店',
+    'com.vivo.browser': 'vivo浏览器', 'com.iqoo.secure': 'i管家',
+    'com.bbk.calendar': '日历',
+    // ---- 系统 / 桌管（三星 / 通用 AOSP）----
+    'com.sec.android.app.launcher': '桌面', 'com.sec.android.gallery3d': '相册',
+    'com.samsung.android.messaging': '信息',
+    'com.android.systemui': '系统界面', 'com.android.settings': '设置',
+    'com.android.phone': '电话', 'com.android.dialer': '拨号',
+    'com.android.mms': '短信', 'com.android.contacts': '联系人',
+    'com.android.camera': '相机', 'com.android.documentsui': '文件',
+    'com.android.gallery3d': '相册', 'com.android.deskclock': '时钟',
+    'com.android.calendar': '日历', 'com.android.calculator2': '计算器',
+    'com.android.packageinstaller': '安装程序',
+    'com.android.providers.downloads': '下载管理', 'com.android.bluetooth': '蓝牙',
+    // ---- Google ----
+    'com.android.vending': 'Google Play', 'com.google.android.gms': 'Play 服务',
+    'com.google.android.googlequicksearchbox': 'Google',
+    'com.google.android.gm': 'Gmail', 'com.google.android.apps.maps': 'Google 地图',
+    'com.google.android.apps.photos': 'Google 相册',
+    'com.google.android.apps.docs': '云端硬盘',
+    'com.google.android.calendar': 'Google 日历',
+    'com.google.android.deskclock': '时钟', 'com.google.android.dialer': '电话',
+    'com.google.android.contacts': '通讯录',
+    'com.google.android.apps.messaging': '信息',
+    // ---- root / 玩机 ----
+    'com.topjohnwu.magisk': 'Magisk', 'me.weishu.kernelsu': 'KernelSU',
+    'com.rifsxd.ksunext': 'KernelSU Next', 'me.bmax.apatch': 'APatch',
+    // ---- 补充：常见但容易漏的 ----
+    'com.tencent.weishi': '微视', 'com.kuaikan.comic': '快看漫画',
+    'com.tencent.news': '腾讯新闻', 'com.netease.newsreader.activity': '网易新闻',
+    'com.smzdm.client.android': '什么值得买', 'com.jd.jdlite': '京东特价版',
+    'com.taobao.litetao': '淘特', 'com.xiaomi.gamecenter': '游戏中心',
+    'com.mi.health': '小米运动健康',
+    'com.tencent.tmgp.dfm': '三角洲行动', 'com.tencent.tmgp.pubgm': 'PUBG Mobile',
+    'com.activision.callofduty.shooter': '使命召唤手游',
+    'com.epicgames.fortnite': '堡垒之夜'
   };
+
+  // 系统 / 内核进程名 → 中文。这些进程的 name 本身就是可读英文，但在
+  // 「进程内存」列表里和包名混在一起不容易辨认，统一给个说法。
+  const PROC_LABELS = {
+    'system_server': '系统服务', 'surfaceflinger': '图形合成',
+    'zygote': '应用孵化', 'zygote64': '应用孵化',
+    'logd': '日志服务', 'vold': '存储守护', 'netd': '网络守护',
+    'audioserver': '音频服务', 'mediaserver': '媒体服务', 'cameraserver': '相机服务',
+    'rild': '射频服务', 'thermal-engine': '温控引擎', 'mpdecision': 'CPU 调度',
+    'servicemanager': '服务管理', 'hwservicemanager': 'HAL 服务管理',
+    'installd': '应用安装', 'keystore': '密钥库',
+    'fingerprintd': '指纹服务', 'statsd': '统计服务', 'traced': '跟踪服务',
+    'lmkd': '低内存杀手'
+  };
+
+  // 用户在界面里指定的显示名（模块目录 app_names.conf，格式「包名=名字」）。
+  // 优先级高于内置表：内置表总有覆盖不到的应用，这个口子是唯一能保证 100% 可控的。
+  let USER_NAMES = {};
+  function setUserNames(text){
+    USER_NAMES = {};
+    String(text || '').split(/\r?\n/).forEach(l => {
+      const i = l.indexOf('=');
+      if(i <= 0) return;
+      const k = l.slice(0, i).trim();
+      const v = l.slice(i + 1).trim();
+      if(k && v) USER_NAMES[k] = v;
+    });
+  }
+  // 所有显示名的唯一出口：用户命名 > 内置表 > ''（由调用方决定回退到包名）
+  function appName(pkg){
+    const k = String(pkg || '').split(':')[0];
+    return USER_NAMES[k] || LABELS[k] || '';
+  }
+  // 列表/标题用：没有名字就退回包名，绝不显示空白
+  function nameOrPkg(pkg){
+    return appName(pkg) || String(pkg || '').split(':')[0];
+  }
 
   const MOCK_PROCS = [
     {pid:12043, uid:10186, adj:0,    rss:1296000, name:'com.tencent.mm',              kept:true,  tier:'critical'},
@@ -2286,10 +2700,14 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
 
   function labelOf(p){
     const pkg = pkgOf(p);
-    const base = LABELS[pkg] || pkg || p.name;
-    const i = String(p.name).indexOf(':');
+    const full = String(p.name || '');
+    // 系统/内核进程按进程名映射（system_server、surfaceflinger 这类）
+    const sys = PROC_LABELS[full];
+    if(sys) return sys;
+    const base = nameOrPkg(pkg) || p.name;
+    const i = full.indexOf(':');
     // 子进程（微信 :push 之类）必须带后缀，否则列表里会出现两个"微信"
-    return i < 0 ? base : base + ' · ' + String(p.name).slice(i + 1);
+    return i < 0 ? base : base + ' · ' + full.slice(i + 1);
   }
   // 首页按包名聚合成一行：一个应用拆成三行没人看得懂
   function aggregate(list){
@@ -2324,10 +2742,17 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
 
   function procRowHTML(p, maxRss){
     const r = fmtRss(p.rss);
-    const w = Math.max(3, Math.round(p.rss / maxRss * 100));
-    const sub = p.name === pkgOf(p) ? pkgOf(p) : p.name;
+    const s = Math.max(0.03, Math.min(1, p.rss / maxRss));
+    const pkg = pkgOf(p);
+    // 副标题：子进程显示完整进程名；有名字的显示包名（主标题已经是名字）；
+    // 系统进程显示进程名；剩下的是既没名字也不是系统进程的，给个能操作的提示。
+    let sub;
+    if(p.name !== pkg) sub = p.name;
+    else if(appName(pkg)) sub = pkg;
+    else if(PROC_LABELS[p.name]) sub = p.name;
+    else sub = '未收录名称 · 点按可命名';
     return '<button class="prow' + (isSys(p) ? ' sys' : '') + '" data-pid="' + p.pid + '">' +
-      '<span class="pbar" style="--w:' + w + '%"></span>' +
+      '<span class="pbar" style="--s:' + s.toFixed(3) + '"></span>' +
       '<span class="pmain"><b>' + esc(labelOf(p)) + (p.kept ? LOCK_SVG : '') + '</b>' +
       '<i>' + esc(sub) + ' · ' + adjText(p.adj) + '</i></span>' +
       '<span class="prss">' + r.v + '<span>' + r.u + '</span></span>' +
@@ -2336,13 +2761,24 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
 
   function aggRowHTML(a, maxRss){
     const r = fmtRss(a.rss);
-    const w = Math.max(3, Math.round(a.rss / maxRss * 100));
+    const s = Math.max(0.03, Math.min(1, a.rss / maxRss));
+    const named = !!appName(a.pkg);
     return '<button class="prow" data-goto="' + esc(a.pkg) + '">' +
-      '<span class="pbar" style="--w:' + w + '%"></span>' +
-      '<span class="pmain"><b>' + esc(LABELS[a.pkg] || a.pkg) + (a.kept ? LOCK_SVG : '') + '</b>' +
-      '<i>' + esc(a.pkg) + (a.parts > 1 ? ' · ' + a.parts + ' 个进程' : '') + '</i></span>' +
+      '<span class="pbar" style="--s:' + s.toFixed(3) + '"></span>' +
+      '<span class="pmain"><b>' + esc(nameOrPkg(a.pkg)) + (a.kept ? LOCK_SVG : '') + '</b>' +
+      '<i>' + esc(named ? a.pkg : '未收录名称') +
+        (a.parts > 1 ? ' · ' + a.parts + ' 个进程' : '') + '</i></span>' +
       '<span class="prss">' + r.v + '<span>' + r.u + '</span></span>' +
       '</button>';
+  }
+
+  // 列表渲染去重：同一份数据被重复 render 时（面板打开 → 数据没变 → 再 render）
+  // 没必要把整段 innerHTML 重新解析一遍。签名一致就直接跳过，滚动位置也不会被重置。
+  const RENDER_SIG = {};
+  function sameSig(key, sig){
+    if(RENDER_SIG[key] === sig) return true;
+    RENDER_SIG[key] = sig;
+    return false;
   }
 
   function renderHomeProcs(){
@@ -2350,9 +2786,7 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
     if(!box) return;
     const apps = aggregate(PROCS.filter(p => !isSys(p))).slice(0, 3);
     const max = apps.length ? apps[0].rss : 1;
-    box.innerHTML = apps.length
-      ? apps.map(a => aggRowHTML(a, max)).join('')
-      : '<div style="padding:22px 16px;text-align:center;color:var(--tx3);font-size:12.5px">读取不到进程列表</div>';
+    // 计数和列表分开：计数每次都要跟上，列表按签名去重
     const c = $('#procCount');
     if(c) c.textContent = PROCS.length ? (PROCS.length + ' 个进程 · 按 RSS') : '—';
     // 计数按应用算，不按进程算 —— 微信 :push 不能再算一个应用
@@ -2361,6 +2795,11 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
       k.innerHTML = KEPT_COUNT +
         ' <em style="font-style:normal;color:var(--tx3);font-weight:400">个</em>';
     }
+    const sig = apps.map(a => a.pkg + ':' + nameOrPkg(a.pkg) + ':' + a.rss + ':' + (a.kept ? 1 : 0)).join('|') + '#' + PROCS.length;
+    if(sameSig('home', sig)) return;
+    box.innerHTML = apps.length
+      ? apps.map(a => aggRowHTML(a, max)).join('')
+      : '<div style="padding:22px 16px;text-align:center;color:var(--tx3);font-size:12.5px">读取不到进程列表</div>';
   }
 
   function filteredProcs(){
@@ -2374,21 +2813,28 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
     }).sort((a, b) => b.rss - a.rss);
   }
 
-  function renderPanel(){
-    const list = filteredProcs();
+  function renderPanel(force){
     const box = $('#procList');
     if(!box) return;
-    const max = list.length ? list[0].rss : 1;
-    box.innerHTML = list.length
-      ? list.map(p => procRowHTML(p, max)).join('')
-      : '<div style="padding:34px 16px;text-align:center;color:var(--tx3);font-size:12.5px">没有匹配的进程</div>';
+    const list = filteredProcs();
     const sub = $('#procPanelSub');
     if(sub) sub.textContent = '共 ' + PROCS.length + ' 个进程 · 按常驻内存排序';
     const foot = $('#procFoot');
     if(foot) foot.textContent = '显示 ' + list.length + ' 个 · 系统进程不提供停止操作 · 停止后应用回到前台会重新加载';
+    const sig = procFilter + '|' + procKeyword + '|' +
+                list.map(p => p.pid + ':' + nameOrPkg(pkgOf(p)) + ':' + p.rss + ':' + p.adj + ':' + (p.kept ? 1 : 0)).join('|');
+    if(!force && sameSig('panel', sig)) return;
+    const max = list.length ? list[0].rss : 1;
+    box.innerHTML = list.length
+      ? list.map(p => procRowHTML(p, max)).join('')
+      : '<div style="padding:34px 16px;text-align:center;color:var(--tx3);font-size:12.5px">没有匹配的进程</div>';
   }
 
-  function renderAll(){ renderHomeProcs(); renderPanel(); }
+  function renderAll(){
+    renderHomeProcs();
+    // 面板没打开时不必重建那 60 行 —— 数据变了打开时会重新渲染
+    if($('#procPanel').classList.contains('on')) renderPanel();
+  }
 
   /* ---- 顶部内存环：让数字跟着真实数据走，杀进程后能立刻看到变化 ---- */
   const RING_C = 295.3;   // 2πr，r=47
@@ -2435,8 +2881,12 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
     }
   }
 
+  // 上次成功读内存的时间，给 setTab 做节流（切页时不要和 liveTimer 打架）
+  let lastMemAt = 0;
+
   async function loadMem(pre){
     if(!hasKsu() && !DEMO) return;
+    lastMemAt = Date.now();      // 给 setTab 的节流用：刚拉过就别重复拉
     if(DEMO){   // 画效果图用的完整演示数据，保持各项数值自洽
       RAM_GB = 11.7;
       if(!sparkSeeded) seedSpark(DEMO_SPARK);
@@ -2534,13 +2984,32 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
   }
 
   /* ---- 面板开关 ---- */
-  function openPanel(){
-    $('#procPanel').classList.add('on');
-    renderPanel();
-    history.pushState({ proc: 1 }, '');
+  // 筛选条件属于「这一次进入的上下文」，不能是全局状态：
+  // 之前首页点某个应用会把包名写进全局 procKeyword，关面板时又不清，
+  // 于是下次点「查看全部进程」仍按上次那个包名过滤，列表里只剩那一个进程。
+  function resetProcFilter(){
+    procKeyword = '';
+    procFilter = 'app';
+    const s = $('#procSearch'); if(s) s.value = '';
+    $$('#procFilters .chip-s').forEach(x => x.classList.toggle('on', x.dataset.pfilter === 'app'));
+  }
+  function openPanel(opts){
+    const panel = $('#procPanel');
+    resetProcFilter();                      // 每次进来先回到干净状态
+    if(opts && opts.goto){                  // 只有「从首页点某个应用」才带过滤
+      procKeyword = opts.goto;
+      procFilter = 'all';
+      const s = $('#procSearch'); if(s) s.value = opts.goto;
+      $$('#procFilters .chip-s').forEach(x => x.classList.toggle('on', x.dataset.pfilter === 'all'));
+    }
+    panel.classList.add('on');
+    renderPanel(true);
+    // 已经打开时不再叠历史记录，否则返回键要按两次才退得出去
+    if(!history.state || !history.state.proc) history.pushState({ proc: 1 }, '');
   }
   function closePanel(fromPop){
     $('#procPanel').classList.remove('on');
+    resetProcFilter();                      // 关掉就把筛选清干净
     if(!fromPop && history.state && history.state.proc) history.back();
   }
   window.addEventListener('popstate', ()=>{
@@ -2555,9 +3024,13 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
     $$('#procFilters .chip-s').forEach(x=>x.classList.toggle('on', x === b));
     renderPanel();
   });
+  // 输入时不要每个字符都重建一次列表：60 行 innerHTML 连着重排，
+  // 连续输入会明显发涩。攒 120ms 再渲染，手感反而是「跟手」的。
+  let procInputT = null;
   $('#procSearch').addEventListener('input', e=>{
     procKeyword = e.target.value;
-    renderPanel();
+    if(procInputT) clearTimeout(procInputT);
+    procInputT = setTimeout(()=>{ procInputT = null; renderPanel(); }, 120);
   });
 
   /* ---- 单进程操作 ---- */
@@ -2574,6 +3047,8 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
       kind: p.kept ? '' : 'primary',
       onClick: ()=> toggleKeep(p)
     });
+    // 系统进程不需要改名（它不是应用），只给应用和未知包名留这个入口
+    if(!PROC_LABELS[p.name]) acts.push({ label: '设置显示名…', onClick: ()=> promptAppName(pkgOf(p)) });
     acts.push({ label: '取消' });
 
     openSheet({
@@ -2646,6 +3121,54 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
   const BUCKET_NAME = { 10:'active', 20:'working set', 30:'frequent', 40:'rare', 45:'restricted' };
   const ADJ_TEXT = { '-1000':'-1000', '-999':'-999' };
 
+  // bucket 是第二段异步补的：还没回来时给「…」，不要先显示「—」（那是"未知/查不到"）
+  function bucketLabel(a){
+    if(a.bucket == null || a.bucket === '') return '…';
+    return BUCKET_NAME[a.bucket] || (a.bucket === '-1' ? '—' : a.bucket);
+  }
+
+  function healthSkeleton(){
+    const cell = t => '<div><i>' + t + '</i><b class="sk">····</b></div>';
+    return '<div class="hs-grid">' + cell('保活生效') + cell('已冻结') + cell('工作集回读') + '</div>' +
+           '<div class="hs-note">正在读取 /proc 与 zram 计数…</div>';
+  }
+
+  // 输出格式见 memkeep.sh cmd_health_fast / cmd_health_bucket：
+  //   key=value 行      → d 对象
+  //   app pkg adj bkt tgt → apps 数组（bkt 为 "-" 表示待补）
+  //   bucket pkg n      → 只补 bucket 列
+  function parseHealth(out, d, apps){
+    let got = false;
+    String(out).split(/\r?\n/).forEach(l => {
+      const t = l.trim();
+      if(!t) return;
+      if(t.indexOf('app ') === 0){
+        const c = t.split(/\s+/);
+        if(!c[1]) return;
+        apps.push({ pkg: c[1], adj: c[2], bucket: (c[3] === '-' ? null : c[3]), tgt: c[4] });
+        got = true;
+      }else if(t.indexOf('bucket ') === 0){
+        const c = t.split(/\s+/);
+        const hit = apps.filter(x => x.pkg === c[1])[0];
+        if(hit && c[2]) { hit.bucket = c[2]; got = true; }
+      }else{
+        const i = t.indexOf('=');
+        if(i > 0){ d[t.slice(0, i)] = t.slice(i + 1).trim(); got = true; }
+      }
+    });
+    return got;
+  }
+
+  // 只改 bucket 那一格，不重建整个弹层 —— 重建会闪一下，还可能把用户的滚动位置顶掉
+  function paintBucketCells(apps){
+    $$('#sheetBody .hs-row[data-pkg]').forEach(row => {
+      const a = apps.filter(x => x.pkg === row.dataset.pkg)[0];
+      if(!a) return;
+      const el = row.querySelector('.adj');
+      if(el) el.textContent = (a.adj !== '-9999' ? a.adj : '—') + ' · ' + bucketLabel(a);
+    });
+  }
+
   function healthHTML(d, apps){
     const kept = +(d.kept || 0), okN = +(d.kept_ok || 0);
     const frozen = +(d.frozen || 0);
@@ -2657,7 +3180,8 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
 
     let html = '<div class="hs-grid">' +
       '<div><i>保活生效</i><b class="' + okCls + '">' + okN + '/' + kept + '</b></div>' +
-      '<div><i>已冻结</i><b>' + (d.freezer === '1' ? frozen : '—') + '</b></div>' +
+      // frozen_ok=0 表示 dumpsys 那次超时没数到，显示「—」而不是骗人的 0
+      '<div><i>已冻结</i><b>' + (d.freezer === '1' ? (d.frozen_ok === '0' ? '—' : frozen) : '—') + '</b></div>' +
       '<div><i>工作集回读</i><b>' + (total >= 10000 ? (total / 1000).toFixed(1) + 'k' : total) + '</b></div>' +
     '</div>';
 
@@ -2667,10 +3191,9 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
         const good = running && a.adj === a.tgt;
         const cls = !running ? 'off' : (good ? 'ok' : 'warn');
         const txt = !running ? '未运行' : (good ? '已生效' : '被改回');
-        const bkt = BUCKET_NAME[a.bucket] || (a.bucket === '-1' ? '—' : a.bucket);
-        return '<div class="hs-row">' +
-          '<span class="nm">' + esc(LABELS[a.pkg] || a.pkg) + '</span>' +
-          '<span class="adj">' + (running ? a.adj : '—') + ' · ' + esc(bkt) + '</span>' +
+        return '<div class="hs-row" data-pkg="' + esc(a.pkg) + '">' +
+          '<span class="nm">' + esc(nameOrPkg(a.pkg)) + '</span>' +
+          '<span class="adj">' + (running ? a.adj : '—') + ' · ' + esc(bucketLabel(a)) + '</span>' +
           '<span class="st ' + cls + '">' + txt + '</span>' +
         '</div>';
       }).join('') + '</div>';
@@ -2698,36 +3221,49 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
     return html;
   }
 
+  // 体检分两段取数：第一段只读 /proc（几十毫秒）先把主表铺出来，
+  // 第二段才去问 ActivityManager 要 standby bucket（每包一次 am，最慢的部分）。
+  // 旧版一次性等后端算完，8 个应用要 8–18 秒，中间只有一句「读取中…」。
+  let healthBusy = false;
   async function openHealthSheet(){
-    openSheet({ title:'保活体检', html:'<p>读取中…</p>', single:true, ok:'关闭' });
-    let d = {};
-    const apps = [];
+    if(healthBusy) return;
+    healthBusy = true;
+    openSheet({ title:'保活体检', html: healthSkeleton(), single:true, ok:'关闭' });
 
-    if(hasKsu()){
-      try{
-        const out = await shell('health', 30000);
-        String(out).split(/\r?\n/).forEach(l => {
-          const t = l.trim();
-          if(!t) return;
-          if(t.indexOf('app ') === 0){
-            const c = t.split(/\s+/);
-            apps.push({ pkg: c[1], adj: c[2], bucket: c[3], tgt: c[4] });
-          }else{
-            const i = t.indexOf('=');
-            if(i > 0) d[t.slice(0, i)] = t.slice(i + 1).trim();
-          }
-        });
-      }catch(e){ console.warn('[health]', e && (e.message || e)); }
-    }else if(DEMO){
-      d = { freezer:'1', frozen:'3', mglru:'1', memcg:'v2', kept:'2', kept_ok:'2',
-            refault_anon:'18421', refault_file:'9032' };
-      apps.push({ pkg:'com.tencent.mm', adj:'-1000', bucket:'10', tgt:'-1000' });
-      apps.push({ pkg:'com.ss.android.ugc.aweme', adj:'-999', bucket:'10', tgt:'-999' });
+    const d = {}, apps = [];
+    const paint = ()=>{ const body = $('#sheetBody'); if(body) body.innerHTML = healthHTML(d, apps); };
+
+    try{
+      if(hasKsu()){
+        // 第一段：fast。老版模块没有这个子命令，输出为空 → 回落合并版
+        let out = '';
+        try{ out = await shell('health fast', 6000); }catch(e){ out = ''; }
+        if(!parseHealth(out, d, apps)){
+          try{ out = await shell('health', 20000); }catch(e){ out = ''; }
+          parseHealth(out, d, apps);
+        }
+        paint();
+
+        // 第二段：bucket。失败就保持「…」，主表已经可读，不因为它整页失败
+        if(apps.length && apps.some(a => a.bucket == null)){
+          try{
+            const bo = await shell('health bucket', 12000);
+            parseHealth(bo, d, apps);
+            paintBucketCells(apps);
+          }catch(e){ console.warn('[health bucket]', e && (e.message || e)); }
+        }
+      }else if(DEMO){
+        d.freezer='1'; d.frozen='3'; d.frozen_ok='1'; d.mglru='1'; d.memcg='v2';
+        d.kept='2'; d.kept_ok='2'; d.refault_anon='18421'; d.refault_file='9032';
+        apps.push({ pkg:'com.tencent.mm', adj:'-1000', bucket:'10', tgt:'-1000' });
+        apps.push({ pkg:'com.ss.android.ugc.aweme', adj:'-999', bucket:'10', tgt:'-999' });
+        paint();
+      }else{
+        paint();
+      }
+    }finally{
+      healthBusy = false;
     }
-
-    // 只更新内容，不动按钮（弹层已打开，避免闪一下再开）
-    const body = $('#sheetBody');
-    if(body) body.innerHTML = healthHTML(d, apps);
   }
 
   /* ---------------- 应用选择（保活名单） ---------------- */
@@ -2769,20 +3305,33 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
       if(appFilter === 'kept' && !a.kept) return false;
       if(appFilter === 'free' && a.kept) return false;
       if(!kw) return true;
-      const label = (LABELS[a.pkg] || '').toLowerCase();
+      // 搜索要能同时命中中文名和包名：装了「微信」的人不会去记 com.tencent.mm
+      const label = (appName(a.pkg) || '').toLowerCase();
       return a.pkg.toLowerCase().indexOf(kw) >= 0 || label.indexOf(kw) >= 0;
     }).sort((x, y) => {
       // 保护中的置顶，其余按名字排，避免每次打开顺序都变
       if(x.kept !== y.kept) return x.kept ? -1 : 1;
-      const lx = LABELS[x.pkg] || x.pkg, ly = LABELS[y.pkg] || y.pkg;
+      const lx = nameOrPkg(x.pkg), ly = nameOrPkg(y.pkg);
       return lx.localeCompare(ly, 'zh');
     });
   }
 
-  function renderApps(){
+  function renderApps(force){
     const box = $('#appList');
     if(!box) return;
     const list = appRows();
+
+    const sub = $('#appPanelSub');
+    if(sub) sub.textContent = APPS.length
+      ? ('已安装 ' + APPS.length + ' 个第三方应用 · 保护中 ' + APPS.filter(a => a.kept).length + ' 个')
+      : '读取已安装应用…';
+    const foot = $('#appFoot');
+    if(foot) foot.textContent = '点应用选择保护级别 · 强保护写入 oom_score_adj -1000 并加入 Doze 白名单 · 可重启为 -999';
+
+    // 一百多个应用全量 innerHTML 不便宜，数据没变就不重建
+    const sig = appFilter + '|' + appKeyword + '|' +
+                list.map(a => a.pkg + ':' + nameOrPkg(a.pkg) + ':' + (a.kept ? 1 : 0) + ':' + (a.tier || '')).join('|');
+    if(!force && sameSig('apps', sig)) return;
 
     if(!list.length){
       const why = !hasKsu() && !DEMO
@@ -2791,23 +3340,17 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
       box.innerHTML = '<div style="padding:34px 16px;text-align:center;color:var(--tx3);font-size:12.5px;line-height:1.6">' + esc(why) + '</div>';
     }else{
       box.innerHTML = list.map(a => {
-        const label = LABELS[a.pkg] || a.pkg;
+        const label = nameOrPkg(a.pkg);
+        const sub = appName(a.pkg) ? a.pkg : '未收录名称 · 点按命名';
         const tag = a.kept
           ? '<span class="tag2' + (a.tier === 'critical' ? '' : ' re') + '">' +
             (a.tier === 'critical' ? '强保护' : '可重启') + '</span>'
           : '';
         return '<button class="arow" data-app="' + esc(a.pkg) + '">' +
-          '<span class="am"><b>' + esc(label) + '</b><i>' + esc(a.pkg) + '</i></span>' +
+          '<span class="am"><b>' + esc(label) + '</b><i>' + esc(sub) + '</i></span>' +
           tag + '</button>';
       }).join('');
     }
-
-    const sub = $('#appPanelSub');
-    if(sub) sub.textContent = APPS.length
-      ? ('已安装 ' + APPS.length + ' 个第三方应用 · 保护中 ' + APPS.filter(a => a.kept).length + ' 个')
-      : '读取已安装应用…';
-    const foot = $('#appFoot');
-    if(foot) foot.textContent = '点应用选择保护级别 · 强保护写入 oom_score_adj -1000 并加入 Doze 白名单 · 可重启为 -999';
   }
 
   async function loadApps(){
@@ -2848,20 +3391,29 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
     renderApps();
   }
 
+  // 和进程面板同一个道理：筛选条件不能留在全局，否则下次进来看到的是上次的结果
+  function resetAppFilter(){
+    appKeyword = '';
+    appFilter = 'all';
+    const s = $('#appSearch'); if(s) s.value = '';
+    $$('#appFilters .chip-s').forEach(x => x.classList.toggle('on', x.dataset.afilter === 'all'));
+  }
   function openAppPanel(){
     $('#appPanel').classList.add('on');
-    renderApps();
+    resetAppFilter();
+    renderApps(true);
     if(!appsLoaded) loadApps();
-    history.pushState({ apps: 1 }, '');
+    if(!history.state || !history.state.apps) history.pushState({ apps: 1 }, '');
   }
   function closeAppPanel(fromPop){
     $('#appPanel').classList.remove('on');
+    resetAppFilter();
     if(!fromPop && history.state && history.state.apps) history.back();
   }
 
   function openAppSheet(pkg){
     const hit = APPS.filter(a => a.pkg === pkg)[0] || { pkg: pkg, kept: false, tier: '' };
-    const label = LABELS[pkg] || pkg;
+    const label = nameOrPkg(pkg);
     const cur = hit.kept ? (hit.tier === 'critical' ? '当前：强保护（-1000，永不被杀）' : '当前：可重启（-999，回收后会被拉起）') : '当前：未加入保活名单';
 
     openSheet({
@@ -2873,7 +3425,9 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
       actions: [
         { label: '强保护 · 永不被杀', kind: 'ok', onClick: ()=> chooseKeep(pkg, 'critical') },
         { label: '可重启 · 回收后自动拉起', onClick: ()=> chooseKeep(pkg, 'restartable') },
-        { label: '移出保活名单', kind: 'danger', onClick: ()=> chooseKeep(pkg, 'off') }
+        // 不在名单里时不给「移出」：点了等于什么都没做，只会让人以为坏了
+        ...(hit.kept ? [{ label: '移出保活名单', kind: 'danger', onClick: ()=> chooseKeep(pkg, 'off') }] : []),
+        { label: '设置显示名…', onClick: ()=> promptAppName(pkg) }
       ],
       cancel: '关闭',
       single: true
@@ -2886,8 +3440,59 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
     renderApps();
     renderAll();
     toast(tier === 'off'
-      ? ('已移出保活 · ' + (LABELS[pkg] || pkg))
-      : (tier === 'critical' ? '已强保护 · ' : '已设为可重启 · ') + (LABELS[pkg] || pkg));
+      ? ('已移出保活 · ' + nameOrPkg(pkg))
+      : (tier === 'critical' ? '已强保护 · ' : '已设为可重启 · ') + nameOrPkg(pkg));
+  }
+
+  /* ---------------- 自定义显示名 ---------------- */
+  // Android 侧拿不到本地化应用名（见 LABELS 上方注释），内置表覆盖不到的
+  // 由用户自己命名，存进模块目录的 app_names.conf。只改显示，不影响任何功能。
+  function promptAppName(pkg){
+    let draft = appName(pkg) || '';
+    openSheet({
+      title: '设置显示名',
+      html: '<p class="mono">' + esc(pkg) + '</p>' +
+            '<div class="panel-search" style="margin:12px 0 0">' +
+              '<input id="nmInput" maxlength="16" placeholder="例如：微信">' +
+            '</div>' +
+            '<p class="hs-note" style="margin-top:9px">' +
+              '留空则恢复默认（先查内置名称，没有就显示包名）。这个名字只在这里显示，' +
+              '不会改动应用本身。</p>',
+      cancel: '取消',
+      ok: '保存',
+      onOk: ()=> saveAppName(pkg, draft)
+    });
+    // openSheet 之后元素才在 DOM 里；关闭时会先 closeSheet 再回调，
+    // 所以值必须在输入过程中就存进闭包，不能等 onOk 再读 DOM
+    const el = $('#nmInput');
+    if(el){
+      el.value = draft;
+      el.addEventListener('input', e => { draft = e.target.value; });
+      setTimeout(()=>{ try{ el.focus(); el.select(); }catch(e){} }, 80);
+    }
+  }
+
+  async function saveAppName(pkg, name){
+    const v = String(name || '').trim();
+    // 按码点算长度，中文一个字算一个（后端按字节兜底校验）
+    if([...v].length > 16){ toast('显示名最多 16 个字'); return; }
+
+    if(hasKsu()){
+      try{
+        // 空名字等价于删除这条映射，后端 cmd_name_set 里处理
+        const out = await shell('name set ' + shq(pkg) + ' ' + shq(v));
+        if(!/^OK/.test(String(out).trim())){
+          toast('保存失败：' + String(out).trim());
+          return;
+        }
+      }catch(e){ toast('保存失败'); return; }
+    }
+
+    if(v) USER_NAMES[pkg] = v; else delete USER_NAMES[pkg];
+    // 名字进了各处渲染签名，这里直接全量刷一遍即可
+    renderAll();
+    renderApps();
+    toast(v ? ('已命名为「' + v + '」') : '已恢复默认名称');
   }
 
   $('#appFilters').addEventListener('click', e=>{
@@ -2897,9 +3502,11 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
     $$('#appFilters .chip-s').forEach(x => x.classList.toggle('on', x === b));
     renderApps();
   });
+  let appInputT = null;
   $('#appSearch').addEventListener('input', e=>{
     appKeyword = e.target.value;
-    renderApps();
+    if(appInputT) clearTimeout(appInputT);
+    appInputT = setTimeout(()=>{ appInputT = null; renderApps(); }, 120);
   });
 
   /* ---------------- sheet ---------------- */
@@ -2957,11 +3564,7 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
       if(row.dataset.pid){ openProcSheet(+row.dataset.pid); }
       else if(row.dataset.goto){
         // 首页那行是「按应用聚合」的，点进去看该应用的全部进程
-        procKeyword = row.dataset.goto;
-        procFilter = 'all';
-        $('#procSearch').value = procKeyword;
-        $$('#procFilters .chip-s').forEach(x => x.classList.toggle('on', x.dataset.pfilter === 'all'));
-        openPanel();
+        openPanel({ goto: row.dataset.goto });
       }
       return;
     }
@@ -3123,6 +3726,7 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
     }, 3000);
   }
   document.addEventListener('visibilitychange', ()=>{
+    if(document.body) document.body.classList.toggle('page-hidden', document.hidden);
     if(!document.hidden && (BRIDGE_STATE === 'ok' || BRIDGE_STATE === 'demo')) loadMem();
   });
 
@@ -3138,9 +3742,9 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
       if(cur) sec[cur].push(l);
     });
     const pick = k => (sec[k] || []).join('\n');
-    const boot = { MEM: pick('MEM'), CAPS: pick('CAPS'), ALGS: pick('ALGS'),
-                   CONFIG: pick('CONFIG'), PROCS: pick('PROCS'), KEEP: pick('KEEP'),
-                   LOGS: pick('LOGS') };
+    const boot = { VER: pick('VER'), CACHEP: pick('CACHEP'), MEM: pick('MEM'), CAPS: pick('CAPS'),
+                   ALGS: pick('ALGS'), CONFIG: pick('CONFIG'), PROCS: pick('PROCS'),
+                   KEEP: pick('KEEP'), NAMES: pick('NAMES'), LOGS: pick('LOGS') };
     boot.ok = Object.prototype.hasOwnProperty.call(sec, 'MEM') &&
               Object.prototype.hasOwnProperty.call(sec, 'PROCS');
     return boot;
@@ -3152,6 +3756,8 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
 
   /* ---------------- boot ---------------- */
   (async ()=>{
+    // 先用打包时注入的版本把「关于」页填上，拿到 module.prop 后再校正一次
+    renderAboutVer();
     await detectBridge();
     updateStateChip();
     // 一次取全（老版本模块没有 boot 子命令时回落到逐项拉取）
@@ -3160,6 +3766,12 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
       try{ boot = await loadBoot(); }catch(e){ boot = null; }
     }
     if(boot && boot.ok){
+      // 版本号以设备上的 module.prop 为准（打包注入的只是兜底）
+      applyVer(boot.VER);
+      // 三档的缓存上限预算：切档时要立刻有数字，不能等 apply 后再读
+      applyCachePreset(boot.CACHEP);
+      // 自定义名要在第一次 renderAll 之前生效，否则列表会先画一遍包名再跳成中文
+      setUserNames(boot.NAMES);
       await Promise.allSettled([
         loadConfig(boot.CONFIG),           // 先回读配置，避免用户看到默认值
         loadProcs(boot.PROCS, boot.KEEP).then(renderAll),
@@ -3169,6 +3781,12 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
         loadLogs(boot.LOGS)
       ]);
     }else{
+      // 老版模块没有 boot 子命令：版本号单独取一次，别让关于页停在占位符
+      if(BRIDGE_STATE !== 'ok' && DEMO){
+        // 演示数据按「原厂 512」的机器给，三档才好看出差别
+        applyCachePreset('balanced=512\nstrong=768\nmax=1024\norig=512');
+      }
+      try{ applyVer(await shell('ver', 4000)); }catch(e){ renderAboutVer(); }
       await Promise.allSettled([
         loadConfig(), loadProcs().then(renderAll), loadMem(), loadDevice(), loadAlgs(), loadLogs()
       ]);
@@ -3178,6 +3796,9 @@ html:not([data-theme="dark"]) .sheet .btns .prime.ok{color:#fff}
     // 首屏数据（含 config）都到位了，此刻的表单就是「已生效状态」，从这里开始算修改项
     markApplied();
     recountDirty();
+    // 缓存进程上限 / 保留空闲内存这两项只有 vms 能读到（走 device_config 和 /proc），
+    // 首屏不主动加载的话，调节页上那两格会一直是「—」
+    if(BRIDGE_STATE === 'ok') loadVms();
     startLive();
   })();
   const qTab = params.get('tab');

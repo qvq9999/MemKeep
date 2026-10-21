@@ -43,7 +43,7 @@ UPDATE_JSON = os.path.join(ROOT, "update.json")
 DEFAULT_REPO = "qvq9999/MemKeep"
 
 # ZIP 根目录下应当包含的条目（其余一律不打包）
-INCLUDE = ["module.prop", "config.conf", "keep_apps.conf", "skip_mount", "META-INF", "webroot", "bin"]
+INCLUDE = ["module.prop", "config.conf", "keep_apps.conf", "app_names.conf", "skip_mount", "META-INF", "webroot", "bin"]
 INCLUDE_EXT = (".sh",)
 
 # 这些按文本处理：打包时统一把 CRLF 掰回 LF。
@@ -54,6 +54,12 @@ TEXT_NAMES = ("module.prop", "config.conf", "skip_mount", "update-binary", "upda
 
 VERSION_RE = re.compile(r"^version=(.+)$", re.M)
 CODE_RE = re.compile(r"^versionCode=(\d+)$", re.M)
+
+# WebUI 里版本号的占位符：打包时按 module.prop 注入。
+# 之前关于页的版本是手写的常量，发版永远不跟着变；注入 + 运行时读 module.prop
+# 双保险后，页面显示的版本一定等于设备上真正装着的版本。
+VER_TOKEN = b"__MK_VERSION__"
+CODE_TOKEN = b"__MK_CODE__"
 
 
 def read_prop():
@@ -85,12 +91,13 @@ def collect():
     return items
 
 
-def build(version):
+def build(version, code):
     os.makedirs(DIST_DIR, exist_ok=True)
     target = os.path.join(DIST_DIR, "MemKeepPlus-%s.zip" % version)
 
     items = collect()
     fixed = 0
+    injected = 0
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         for full, rel in items:
             info = zipfile.ZipInfo(rel)
@@ -103,12 +110,19 @@ def build(version):
                 if b"\r\n" in data:
                     data = data.replace(b"\r\n", b"\n")
                     fixed += 1
+            # 版本号注入：只对 WebUI 主页面做
+            if rel == "webroot/index.html" and (VER_TOKEN in data or CODE_TOKEN in data):
+                data = data.replace(VER_TOKEN, version.encode("utf-8"))
+                data = data.replace(CODE_TOKEN, str(code).encode("ascii"))
+                injected += 1
             z.writestr(info, data)
 
     size = os.path.getsize(target)
     print("built: %s  (%d files, %.1f KB)" % (os.path.relpath(target, ROOT), len(items), size / 1024))
     if fixed:
         print("normalized CRLF -> LF in %d file(s)" % fixed)
+    if injected:
+        print("injected version %s (%d) into webroot/index.html" % (version, code))
 
     return target
 
@@ -157,10 +171,15 @@ def verify(zip_path):
             if name.endswith(TEXT_EXT) or os.path.basename(name) in TEXT_NAMES:
                 if b"\r\n" in z.read(name):
                     problems.append("ZIP 内 %s 含 CRLF" % name)
+        # 版本号占位符必须已经替换掉，否则关于页会显示 __MK_VERSION__
+        if "webroot/index.html" in z.namelist():
+            html = z.read("webroot/index.html")
+            if VER_TOKEN in html or CODE_TOKEN in html:
+                problems.append("ZIP 内 webroot/index.html 仍含版本占位符（注入失败）")
 
     if problems:
         sys.exit("校验失败：\n  - " + "\n  - ".join(problems))
-    print("verify ok: update.json 与 module.prop 一致、ZIP 内全为 LF")
+    print("verify ok: update.json 与 module.prop 一致、ZIP 内全为 LF、版本号已注入")
 
 
 def main():
@@ -178,7 +197,7 @@ def main():
 
     if args.update_json:
         sync_update_json(version, code, args.repo, zip_name, args.zip_base)
-    target = build(version)
+    target = build(version, code)
     verify(target)
 
 

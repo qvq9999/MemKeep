@@ -300,6 +300,10 @@ apply_background_retention() {
   [ "$maxc" -lt 64 ]   && maxc=64
   minc=$((maxc / 2))
   [ "$minc" -lt 32 ] && minc=32
+  # 下限不能跟着上限一起放大：maxc=1024 时算出来 512，等于「内存再紧也要留 512 个
+  # cached 进程」—— 12 GB 机器上物理不可能，系统只能放弃温和回收、直接进 OOM killer
+  # 去杀应用，与保活目标正好相反。上限 256 足够覆盖真实场景。
+  [ "$minc" -gt 256 ] && minc=256
 
   device_config put activity_manager max_cached_processes "$maxc" >/dev/null 2>&1
   device_config put activity_manager max_phantom_processes "$maxc" >/dev/null 2>&1
