@@ -36,7 +36,7 @@ echo "缓存进程上限: $(device_config get activity_manager max_cached_proces
 
 # 保活名单
 echo "----------------------------------------"
-if [ -f "$KEEP" ] && grep -qv '^[[:space:]]*#' "$KEEP" 2>/dev/null; then
+if [ -f "$KEEP" ] && grep -qE '^[[:space:]]*[^#[:space:]]' "$KEEP" 2>/dev/null; then
   echo "保活名单："
   grep -v '^[[:space:]]*#' "$KEEP" 2>/dev/null | grep -v '^[[:space:]]*$' | sed 's/^/  /'
 else

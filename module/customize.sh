@@ -17,13 +17,12 @@ set_perm "$MODPATH/app_names.conf" 0 0 0644
 # 安装阶段旧目录还没被删，正好在这里合并：
 #   · PRESERVE_KEYS 里的键：用户值优先，但每个值都要过一遍合法性校验
 #   · 不在表里的键（本版改过语义或默认值的）：一律用新版默认值
-# 以后哪个版本的哪个键改了含义，把它从 PRESERVE_KEYS 拿掉、或加进 MIGRATE_SKIP 即可。
+# 以后哪个版本的哪个键改了含义，把它从 PRESERVE_KEYS 拿掉即可（拿掉 = 该键回到新版默认值）。
 OLD_DIR=/data/adb/modules/memkeep_plus
 CONF="$MODPATH/config.conf"
 PRESERVE_KEYS="ZRAM_ENABLE ZRAM_SIZE ZRAM_ALGORITHM ZRAM_KEEP_BACKING_DEV KEEP_MODE \
 LATE_REAPPLY KEEP_DAEMON VM_CUSTOM AM_CACHE_MAX VM_SWAPPINESS VM_WATERMARK VM_MIN_FREE \
 VM_PAGE_CLUSTER VM_DIRTY_RATIO VM_COMPACT VM_MIN_TTL"
-MIGRATE_SKIP=""          # 本版语义有变、不允许旧值覆盖的键（v3.3：无）
 
 valid_cfg() {
   case "$1" in
@@ -31,8 +30,10 @@ valid_cfg() {
       case "$2" in true|false) return 0 ;; esac ;;
     KEEP_MODE)
       case "$2" in balanced|strong|max) return 0 ;; esac ;;
+    # 与 save_config.sh 的 allowed 列表保持一致，否则迁过来一个 UI 能选、
+    # 保存时却被拒的算法（升级后第一次点保存就失败）
     ZRAM_ALGORITHM)
-      case "$2" in ''|*[!a-zA-Z0-9_-]*) return 1 ;; *) return 0 ;; esac ;;
+      case "$2" in auto|zstd|lz4|lz4hc|lzo-rle|lzo|deflate|842|lz4kd) return 0 ;; esac ;;
     ZRAM_SIZE)
       case "$2" in
         auto) return 0 ;;
@@ -71,7 +72,6 @@ if [ -f "$OLD_DIR/config.conf" ] && [ -f "$CONF" ]; then
   chmod 0644 "$MODPATH/config.conf.old" 2>/dev/null
   for k in $PRESERVE_KEYS; do
     grep -q "^$k=" "$CONF" 2>/dev/null || continue          # 本版已废弃的键不迁移
-    case " $MIGRATE_SKIP " in *" $k "*) continue ;; esac
     ov=$(sed -n "s/^$k=//p" "$OLD_DIR/config.conf" 2>/dev/null | tail -n 1)
     [ -n "$ov" ] || continue
     if valid_cfg "$k" "$ov"; then
@@ -154,8 +154,11 @@ if [ -f "$OLD_DIR/system_snapshot.conf" ]; then
   ui_print "- 沿用上次的系统原值快照（升级不会把模块改过的值当成原厂值）"
 else
 {
+  # watermark_boost_factor / dirtytime_expire_seconds 由 tools.sh 的 apply_vm_common 写入，
+  # 快照里不记的话「恢复系统原值」会漏掉这两项。
   for k in swappiness watermark_scale_factor min_free_kbytes page-cluster \
-           dirty_ratio dirty_background_ratio compaction_proactiveness overcommit_memory; do
+           dirty_ratio dirty_background_ratio compaction_proactiveness overcommit_memory \
+           watermark_boost_factor dirtytime_expire_seconds; do
     v=$(cat "/proc/sys/vm/$k" 2>/dev/null)
     [ -n "$v" ] && echo "$k=$v"
   done
@@ -175,6 +178,16 @@ else
   done
   v=$(device_config get activity_manager_native_boot use_freezer 2>/dev/null)
   [ -n "$v" ] && echo "use_freezer=$v"
+  # 本模块会写的那批 persist 属性：原厂有值就记下来（还原时写回），
+  # 没记到就意味着原厂本来没有这一项（还原时删掉我们加的）。
+  for k in persist.sys.preload.enable persist.sys.precache.enable \
+           persist.device_config.activity_manager.use_compaction \
+           persist.device_config.mglru_native.lru_gen_config \
+           persist.device_config.lmkd_native.use_minfree_levels \
+           persist.sys.miui_bg_apps_limit persist.sys.mms.bg_apps_limit; do
+    v=$(getprop "$k" 2>/dev/null)
+    [ -n "$v" ] && echo "$k=$v"
+  done
 } > "$SNAP" 2>/dev/null
 chmod 0644 "$SNAP" 2>/dev/null
 ui_print "- 已记录系统原值快照，可一键恢复"

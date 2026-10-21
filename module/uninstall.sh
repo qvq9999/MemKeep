@@ -7,6 +7,8 @@ clear_device_config() {
 
 clear_device_config activity_manager max_cached_processes
 clear_device_config activity_manager max_phantom_processes
+# min_cached_processes 由 tools.sh 的 apply_background_retention 写入，原来漏了没清
+clear_device_config activity_manager min_cached_processes
 clear_device_config activity_manager use_compaction
 clear_device_config mglru_native lru_gen_config
 
@@ -18,6 +20,7 @@ if command -v resetprop >/dev/null 2>&1; then
   resetprop --delete ro.lmk.swap_free_low_percentage >/dev/null 2>&1
   resetprop --delete ro.lmk.swap_util_max >/dev/null 2>&1
   resetprop -p --delete persist.device_config.activity_manager.use_compaction >/dev/null 2>&1
+  resetprop -p --delete persist.device_config.activity_manager.min_cached_processes >/dev/null 2>&1
   resetprop -p --delete persist.device_config.mglru_native.lru_gen_config >/dev/null 2>&1
   resetprop -p --delete persist.device_config.lmkd_native.use_minfree_levels >/dev/null 2>&1
   resetprop -p --delete persist.sys.miui_bg_apps_limit >/dev/null 2>&1

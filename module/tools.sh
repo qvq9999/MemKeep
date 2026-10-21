@@ -1,12 +1,17 @@
 #!/system/bin/sh
 
 MODDIR=${0%/*}
+# 以 `sh tools.sh` 这种相对方式被 source 时 ${0%/*} 拿不到目录，兜一下
+[ "$MODDIR" = "$0" ] && MODDIR=.
 CONFIG="$MODDIR/config.conf"
 LOG="$MODDIR/memkeep.log"
 
 log_msg() {
-  if [ -f "$LOG" ] && [ "$(wc -c < "$LOG")" -gt 65536 ]; then
-    tail -n 100 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
+  # 每 20 条才 stat 一次日志大小：原来每条都 fork 一个 wc，开机一轮下来是十几次白 fork。
+  # 单条日志不可能有 64 KB，漏检一两条不影响「超限后只留最近 100 行」的效果。
+  LOG_N=$(( ${LOG_N:-0} + 1 ))
+  if [ $((LOG_N % 20)) -eq 1 ] && [ -f "$LOG" ]; then
+    [ "$(wc -c < "$LOG")" -gt 65536 ] && { tail -n 100 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"; }
   fi
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG"
 }
@@ -85,7 +90,7 @@ calc_zram_bytes() {
     *%)
       pct="${ZRAM_SIZE%\%}"
       case "$pct" in
-        ''|*[!0-9*]|0*) echo "$total_bytes" ;;
+        ''|*[!0-9]|0*) echo "$total_bytes" ;;
         *) size=$((total_bytes * pct / 100)); [ "$size" -lt 1073741824 ] && size=1073741824; echo "$size" ;;
       esac
       ;;
@@ -104,25 +109,37 @@ calc_zram_bytes() {
 }
 
 choose_zram_algorithm() {
-  local available alg
+  local available alg listf="${1:-/sys/block/zram0/comp_algorithm}"
 
-  [ -f /sys/block/zram0/comp_algorithm ] || return 1
-  available="$(cat /sys/block/zram0/comp_algorithm)"
+  [ -f "$listf" ] || return 1
+  # 列表形如 "lzo lzo-rle [lz4] zstd"，方括号标的是当前生效项。
+  # 去掉方括号后按「整词」比较：用 grep -w 会把 lzo 命中到 lzo-rle 里
+  # （- 也算词边界），于是配置了内核没有的算法也能"通过"，写进 comp_algorithm
+  # 时被内核静默拒绝 —— 表现就是「选了算法但没生效」。
+  available="$(tr -d '[]' < "$listf" 2>/dev/null)"
+  [ -n "$available" ] || return 1
+
+  has_alg() {
+    case " $(echo $available) " in
+      *" $1 "*) return 0 ;;
+      *) return 1 ;;
+    esac
+  }
 
   if [ "$ZRAM_ALGORITHM" != "auto" ]; then
-    echo "$available" | grep -qw "$ZRAM_ALGORITHM" && {
+    if has_alg "$ZRAM_ALGORITHM"; then
       echo "$ZRAM_ALGORITHM"
       return 0
-    }
+    fi
     log_msg "configured zram algorithm unsupported: $ZRAM_ALGORITHM"
     return 1
   fi
 
   for alg in zstd lz4 lzo-rle lzo; do
-    echo "$available" | grep -qw "$alg" && {
+    if has_alg "$alg"; then
       echo "$alg"
       return 0
-    }
+    fi
   done
 
   return 1

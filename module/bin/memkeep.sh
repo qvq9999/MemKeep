@@ -14,9 +14,8 @@
 # 模块根目录 = 本脚本所在 bin/ 的上一级。
 # 用 case 判断层级，比反复 ${0%/*} 更可靠（相对路径调用时也能算对）。
 case "$0" in
-  */*/*) MODDIR=$(cd "${0%/*}/.." 2>/dev/null && pwd) ;;
-  */*)   MODDIR=$(cd "${0%/*}/.." 2>/dev/null && pwd) ;;
-  *)     MODDIR=$(pwd) ;;
+  */*) MODDIR=$(cd "${0%/*}/.." 2>/dev/null && pwd) ;;
+  *)   MODDIR=$(pwd) ;;
 esac
 [ -d "$MODDIR" ] || MODDIR=${0%/*}
 LIST="$MODDIR/keep_apps.conf"
@@ -47,11 +46,6 @@ score_of() {
   esac
 }
 
-# 取 /proc/meminfo 里某个字段的 kB 值（不存在则输出 0）
-meminfo_kb() {
-  awk -v k="$1" '$1==k":"{print $2+0; exit}' /proc/meminfo 2>/dev/null
-}
-
 cmd_mem() {
   awk '
     /^MemTotal:/     {t=$2}
@@ -59,9 +53,8 @@ cmd_mem() {
     /^Cached:/       {c=$2}
     /^SwapTotal:/    {st=$2}
     /^SwapFree:/     {sf=$2}
-    /^Buffers:/      {b=$2}
     END {
-      printf "total=%d\navail=%d\ncached=%d\nbuffers=%d\nswaptotal=%d\nswapfree=%d\n", t, a, c, b, st, sf
+      printf "total=%d\navail=%d\ncached=%d\nswaptotal=%d\nswapfree=%d\n", t, a, c, st, sf
     }
   ' /proc/meminfo 2>/dev/null
 
@@ -92,7 +85,8 @@ cmd_mem() {
     # 4.20 之前的厂商分支里 mm_stat 的单位是「页」，之后统一成「字节」。
     # 用 meminfo 的 swap 占用量交叉校验：字节口径下两者几乎相等，
     # 差 4096 倍就是页口径，统一换算成字节再往下传。
-    _su=$(( ($(meminfo_kb SwapTotal) - $(meminfo_kb SwapFree)) * 1024 ))
+    # 这里只读一次 /proc/meminfo（原来 SwapTotal / SwapFree 各 fork 一次 awk）。
+    _su=$(awk '/^SwapTotal:/{t=$2} /^SwapFree:/{f=$2} END{printf "%d", (t-f)*1024}' /proc/meminfo 2>/dev/null)
     if [ "${_su:-0}" -gt 0 ] && [ "${zorig:-0}" -gt 0 ] 2>/dev/null; then
       _ratio=$(awk -v s="$_su" -v o="$zorig" 'BEGIN{ if (o > 0) printf "%d", s / o; else print 0 }')
       if [ "${_ratio:-0}" -ge 3000 ] && [ "${_ratio:-0}" -le 5000 ]; then
@@ -107,17 +101,13 @@ cmd_mem() {
   echo "zram_disk=${zdisk:-0}"
   echo "zram_alg=$zalg"
 
-  # PSI 内存压力：avg10 是最直观的"现在有多紧"
+  # PSI 内存压力：avg10 是最直观的"现在有多紧"。
+  # full 值前端不用（只读 psi_some），不再多 fork 一次 awk。
   if [ -r /proc/pressure/memory ]; then
     echo "psi_some=$(awk '/^some/{gsub("avg10=",""); print $2; exit}' /proc/pressure/memory 2>/dev/null)"
-    echo "psi_full=$(awk '/^full/{gsub("avg10=",""); print $2; exit}' /proc/pressure/memory 2>/dev/null)"
   else
     echo "psi_some="
-    echo "psi_full="
   fi
-
-  echo "swaps=$(awk '/^SwapTotal:/{t=$2} /^SwapFree:/{f=$2} END{print (t-f)}' /proc/meminfo 2>/dev/null)"
-  echo "procs=$(ps -A 2>/dev/null | wc -l | tr -d ' ')"
 }
 
 # 进程列表。
@@ -232,19 +222,30 @@ cmd_compact() {
 
 # 读取当前生效的 VM 参数（只读）。键名与 /proc/sys/vm 下一致，
 # 前端自己带中文标签和解释，脚本只负责取值。
+# 只输出前端真正会显示/回写的项（dirty_background_ratio / overcommit_memory 没有写入口，
+# 输出它们只会让前端多两个永远改不动的键）。
 cmd_vms() {
   for k in swappiness watermark_scale_factor min_free_kbytes page-cluster \
-           dirty_ratio dirty_background_ratio compaction_proactiveness overcommit_memory; do
+           dirty_ratio compaction_proactiveness; do
     v=$(cat "/proc/sys/vm/$k" 2>/dev/null)
     [ -n "$v" ] && printf '%s=%s\n' "$k" "$v"
   done
-  # 缓存进程上限不属于 /proc/sys/vm，单独从 ActivityManager 取
+  # 缓存进程上限不属于 /proc/sys/vm，单独从 ActivityManager 取。
+  # 没有覆盖时 device_config 会打印字符串 "null"，那不是数值 —— 必须过滤掉，
+  # 否则前端会把它当上限记下来，保存整组时整条 vmsave 被 REFUSE_INVALID 拒掉。
   amc=$(device_config get activity_manager max_cached_processes 2>/dev/null)
-  [ -n "$amc" ] && printf 'max_cached_processes=%s\n' "$amc"
+  case "$amc" in
+    ''|null|*[!0-9]*) : ;;
+    *) printf 'max_cached_processes=%s\n' "$amc" ;;
+  esac
 
-  # MGLRU 工作集保护（最近 N 毫秒访问过的页不淘汰），0 = 关闭
+  # MGLRU 工作集保护（最近 N 毫秒访问过的页不淘汰），0 = 关闭。
+  # 内核没有这个旋钮时也要给出 0：前端拿它和档位值比对，缺键会显示上一个档位的值。
   ttl=$(cat /sys/kernel/mm/lru_gen/min_ttl_ms 2>/dev/null)
-  printf 'min_ttl_ms=%s\n' "${ttl:-0}"
+  case "$ttl" in
+    ''|*[!0-9]*) ttl=0 ;;
+  esac
+  printf 'min_ttl_ms=%s\n' "$ttl"
 }
 
 # 压缩算法能力探测。
@@ -317,27 +318,21 @@ cmd_vmreset() {
 
 # 设备与能力探测。给「关于」页用 —— 不同品牌/内核能做什么，以本机实况为准，
 # 不要在前端写死「支持 / 不支持」。
+# 只输出前端真的会显示的三类：机型/系统、root 方案、守护状态；
+# zram 与 mglru/memcg 各留一行（廉价的能力判断），其余能力项前端不引用，已删。
 cmd_caps() {
   echo "model=$(getprop ro.product.model)"
   echo "android=$(getprop ro.build.version.release)"
   echo "sdk=$(getprop ro.build.version.sdk)"
   echo "kernel=$(uname -r)"
   [ -d /sys/block/zram0 ] && echo "zram=1" || echo "zram=0"
-  [ -e /sys/block/zram0/recompress ] && echo "recompress=1" || echo "recompress=0"
-  [ -e /sys/block/zram0/backing_dev ] && echo "writeback=1" || echo "writeback=0"
-  [ -e /sys/kernel/mm/lru_gen/enabled ] && echo "mglru=1" || echo "mglru=0"
-  [ -e /proc/sys/vm/compaction_proactiveness ] && echo "compact=1" || echo "compact=0"
+  [ -d /sys/kernel/mm/lru_gen ] && echo "mglru=1" || echo "mglru=0"
   gpid=$(cat "$MODDIR/guard.pid" 2>/dev/null)
   if [ -n "$gpid" ] && [ -d "/proc/$gpid" ]; then
     echo "guard=1"
   else
     echo "guard=0"
   fi
-  echo "amcache=$(device_config get activity_manager max_cached_processes 2>/dev/null)"
-  # 缓存应用冻结器：留内存但不上 CPU，直接决定"多开切回来要不要冷启动"
-  fz=$(device_config get activity_manager_native_boot use_freezer 2>/dev/null)
-  [ "$fz" = "true" ] && echo "freezer=1" || echo "freezer=0"
-  [ -d /sys/kernel/mm/lru_gen ] && echo "mglru=1" || echo "mglru=0"
   # memcg 是 v1 还是 v2：v1 没有 memory.low，回收目标层做不了
   if [ -e /sys/fs/cgroup/cgroup.controllers ]; then
     if grep -q memory /sys/fs/cgroup/cgroup.controllers 2>/dev/null; then
@@ -457,7 +452,10 @@ cmd_name_set() {
 
   [ -f "$NAMES" ] || : > "$NAMES"
   tmp="$NAMES.tmp"
-  grep -v "^$pkg=" "$NAMES" > "$tmp" 2>/dev/null
+  # 用 awk 做「字段精确比较」而不是 grep "^$pkg="：包名里的 . 在 BRE 里是通配符，
+  # 拿它拼正则会把 com.a.b 与 com.aXb 混为一谈，改名时误删别人的行。
+  awk -v p="$pkg" '
+    { k = $0; sub(/=.*/, "", k); if (k != p) print }' "$NAMES" > "$tmp" 2>/dev/null
   if [ -n "$name" ]; then
     printf '%s=%s\n' "$pkg" "$name" >> "$tmp"
   fi
@@ -475,7 +473,8 @@ cmd_keep_set() {
 
   [ -f "$LIST" ] || : > "$LIST"
   tmp="$LIST.tmp"
-  grep -v "^$pkg[[:space:]]" "$LIST" > "$tmp" 2>/dev/null
+  # 同上：按第一字段精确比较，不拼正则（包名带 . 时 `grep "^$pkg "` 会误删）
+  awk -v p="$pkg" '$1 != p { print }' "$LIST" > "$tmp" 2>/dev/null
   if [ "$tier" = "off" ]; then
     cmd deviceidle whitelist "-$pkg" >/dev/null 2>&1
     am set-standby-bucket "$pkg" working_set >/dev/null 2>&1
@@ -518,18 +517,15 @@ get_standby_bucket() {
 cmd_health_fast() {
   # 工作集回读：页面被淘汰后又立刻读回来的次数。
   # 增长快 = 回收把热页淘汰了 = 应用切回来要重新加载，也就是"假保活"。
+  # 只统计前端真正展示的两项（pgsteal_* 无人消费，已不再读）。
   awk '
     /^workingset_refault_anon/ {ra=$2}
     /^workingset_refault_file/ {rf=$2}
     /^pgrefault_anon/          {pa=$2}
     /^pgrefault_file/          {pf=$2}
-    /^pgsteal_anon/            {sa=$2}
-    /^pgsteal_file/            {sf=$2}
     END {
       printf "refault_anon=%d\n", ra+pa
       printf "refault_file=%d\n", rf+pf
-      printf "steal_anon=%d\n", sa
-      printf "steal_file=%d\n", sf
     }' /proc/vmstat 2>/dev/null
 
   fz=$(device_config get activity_manager_native_boot use_freezer 2>/dev/null)
@@ -700,15 +696,24 @@ cmd_kills() {
 }
 
 # 恢复安装前的系统原值。快照由 customize.sh 在安装时生成。
+# 覆盖本模块动过的四类东西，缺一类就等于「点完还原还有残留」：
+#   1. /proc/sys/vm/*            按快照逐项写回（含 apply_vm_common 的 watermark_boost / dirtytime）
+#   2. device_config             缓存上限（有快照值就写回，没有就删覆盖）
+#   3. ro.lmk.* / persist.*      按快照用 resetprop 写回；快照里没有的（本模块自己加的）删掉
+#   4. 模块自己的配置            保活名单清空、VM_CUSTOM / AM_CACHE_MAX 归零
 cmd_restore() {
   snap="$MODDIR/system_snapshot.conf"
   [ -f "$snap" ] || { echo "NO_SNAPSHOT"; return 1; }
+
+  has_resetprop=0
+  command -v resetprop >/dev/null 2>&1 && has_resetprop=1
+  has_min_cached=0
 
   while IFS='=' read -r k v; do
     case "$k" in ''|\#*) continue ;; esac
     [ -n "$v" ] || continue
     case "$k" in
-      swappiness|watermark_scale_factor|min_free_kbytes|page-cluster|dirty_ratio|dirty_background_ratio|compaction_proactiveness|overcommit_memory)
+      swappiness|watermark_scale_factor|min_free_kbytes|page-cluster|dirty_ratio|dirty_background_ratio|compaction_proactiveness|overcommit_memory|watermark_boost_factor|dirtytime_expire_seconds)
         path="/proc/sys/vm/$k"
         [ -e "$path" ] && { chmod 0644 "$path" 2>/dev/null; echo "$v" > "$path" 2>/dev/null; }
         ;;
@@ -716,9 +721,37 @@ cmd_restore() {
         device_config delete activity_manager max_cached_processes >/dev/null 2>&1
         device_config delete activity_manager max_phantom_processes >/dev/null 2>&1
         ;;
+      am_min_cached)
+        has_min_cached=1
+        device_config put activity_manager min_cached_processes "$v" >/dev/null 2>&1
+        ;;
+      ro.lmk.*)
+        [ "$has_resetprop" = "1" ] && resetprop "$k" "$v" >/dev/null 2>&1
+        ;;
+      persist.*)
+        [ "$has_resetprop" = "1" ] && resetprop -p "$k" "$v" >/dev/null 2>&1
+        ;;
       *) : ;;
     esac
   done < "$snap"
+
+  # 快照里没记到 min_cached_processes，说明原厂没有这个覆盖 —— 删掉我们写的
+  if [ "$has_min_cached" = "0" ]; then
+    device_config delete activity_manager min_cached_processes >/dev/null 2>&1
+  fi
+  # 这两项是本模块加的开销控制，原厂不存在，一律删
+  device_config delete activity_manager use_compaction >/dev/null 2>&1
+  device_config delete mglru_native lru_gen_config >/dev/null 2>&1
+  if [ "$has_resetprop" = "1" ]; then
+    for p in persist.device_config.activity_manager.use_compaction \
+             persist.device_config.mglru_native.lru_gen_config \
+             persist.device_config.lmkd_native.use_minfree_levels \
+             persist.sys.preload.enable persist.sys.precache.enable \
+             persist.sys.miui_bg_apps_limit persist.sys.mms.bg_apps_limit; do
+      # 快照里有的已在上面写回，这里只清「我们加的」
+      grep -q "^$p=" "$snap" 2>/dev/null || resetprop -p --delete "$p" >/dev/null 2>&1
+    done
+  fi
 
   # 自己的配置也一并归零
   [ -f "$LIST" ] && : > "$LIST"
@@ -747,7 +780,9 @@ pids_of_pkg() {
   done
 }
 
-# 把名单写成 oom_score_adj。
+# 把名单写成 oom_score_adj，并补一次系统语义层设置。
+# 注意：这条是全量路径（每个保活包一次 am + 一次 deviceidle，单次 0.3–1.5s），
+# 只在开机、名单变化、以及守护的周期性兜底里调用 —— 别放进 5 秒循环。
 cmd_keep_apply() {
   [ -f "$LIST" ] || { echo "OK empty"; return 0; }
   cmd_keep_list | while read -r pkg tier; do
@@ -764,6 +799,42 @@ cmd_keep_apply() {
     apply_memcg_low "$pkg" "$tier"
   done
   echo "OK applied"
+}
+
+# 守护循环用的快路径：只重压 oom_score_adj。
+# 被 ActivityManager 反复改写的正是这个分数；standby bucket / Doze 白名单写一次就长期有效，
+# 没必要每 5 秒花一次 app_process fork。整轮固定只有 2 个 fork（ps + awk），与名单长度无关。
+# 拿不到 ps 的进程表时返回 1，调用方退回全量路径。
+cmd_keep_adj() {
+  [ -f "$LIST" ] || return 0
+  pairs=$(cmd_keep_list | awk '
+    $2 == "critical"    { print $1, -1000 }
+    $2 == "restartable" { print $1, -999  }')
+  [ -n "$pairs" ] || return 0
+
+  snap=$(ps -A -o PID,NAME 2>/dev/null)
+  # 表头没有数字，整张表一个数字都没有 = ps 不认这套参数（个别 toybox）
+  case "$snap" in
+    *[0-9]*) : ;;
+    *) return 1 ;;
+  esac
+
+  printf '%s\n' "$snap" | awk -v L="$pairs" '
+    BEGIN {
+      n = split(L, a, "\n")
+      for (i = 1; i <= n; i++) {
+        split(a[i], b, " ")
+        if (b[1] != "") tgt[b[1]] = b[2]
+      }
+    }
+    $1 ~ /^[0-9]+$/ {
+      name = $2
+      sub(/:.*/, "", name)
+      if (name in tgt) printf "%s %s\n", $1, tgt[name]
+    }' | while read -r p s; do
+      echo "$s" > "/proc/$p/oom_score_adj" 2>/dev/null
+    done
+  return 0
 }
 
 # cgroup v2 的 memory.low：让这个应用的内存成为「最后被回收」的一块。
@@ -803,19 +874,25 @@ apply_memcg_low() {
 # 守护：名单里的应用被系统改回默认值后重新压回去。
 # 间隔 5s 而不是竞品的 100ms —— oom_score_adj 只在应用切前后台那几个时刻被改写，
 # 5s 足够跟上；sleep 不持有 wakelock，休眠时不会把设备唤醒，耗电可忽略。
+# 循环里只走 cmd_keep_adj 快路径（写 oom_score_adj，2 个 fork）；
+# 全量路径（am / deviceidle / memory.low）每分钟一次兜底 —— 应用被杀后 uid cgroup
+# 可能被重建、memory.low 会丢，需要重新写一次。
 cmd_keep_guard() {
   echo $$ > "$MODDIR/guard.pid" 2>/dev/null
+  i=0
+  cmd_keep_apply >/dev/null 2>&1
   while true; do
-    cmd_keep_apply >/dev/null 2>&1
+    i=$((i + 1))
+    if cmd_keep_adj; then
+      [ $((i % 12)) -eq 0 ] && cmd_keep_apply >/dev/null 2>&1
+    else
+      # 快路径拿不到进程表 → 退回全量（等价旧行为）
+      cmd_keep_apply >/dev/null 2>&1
+    fi
     sleep 5
   done
 }
 
-# 首屏一次性取数。
-# WebUI 每调一次 shell 就要 fork 一个 root shell（100–300ms 的固定开销），
-# 之前首屏要发 8 次：probe + mem + caps + algs + config + procs + keep list + logs/kills。
-# 合并成一次调用后固定开销只付一遍，前端按 ###TAG 分段切。
-# 击杀记录（logcat）故意不放进来 —— 它是首屏最慢的一项，改由「日志」页按需拉。
 # 当前模块版本。给「关于」页用。
 # 页面里写死的版本号不会跟着发版走（v3.4 之前一直显示 v3.3），所以直接从
 # 已安装的 module.prop 读 —— 这是设备上唯一的真值来源。
@@ -852,6 +929,11 @@ cmd_preset_cache() {
   printf 'orig=%s\n' "$fac"
 }
 
+# 首屏一次性取数。
+# WebUI 每调一次 shell 就要 fork 一个 root shell（100–300ms 的固定开销），
+# 之前首屏要发 8 次：probe + mem + caps + algs + config + procs + keep list + logs/kills。
+# 合并成一次调用后固定开销只付一遍，前端按 ###TAG 分段切。
+# 击杀记录（logcat）故意不放进来 —— 它是首屏最慢的一项，改由「日志」页按需拉。
 cmd_boot() {
   n="${1:-60}"
   case "$n" in ''|*[!0-9]*) n=60 ;; esac

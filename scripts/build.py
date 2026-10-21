@@ -15,16 +15,13 @@
 
 关于下载源（国内可访问性）：
   根管理器只会从 update.json 的 zipUrl 取包，所以「换镜像」就是把 zipUrl 换个前缀。
-  GitHub Release 直链在国内经常连不上，因此默认让 zipUrl 指向 jsDelivr 的 GitHub 通道：
-      https://cdn.jsdelivr.net/gh/<repo>@main/release/<file>.zip
-  为什么可行：
-    - jsDelivr 有专门的 Near China 节点，不需要 ICP 备案；
-    - 单文件上限 20 MB，本模块不到 100 KB，完全够用；
-    - 分支引用（@main）缓存 12 小时，但**每次发版文件名都带版本号 = 新路径**，
-      新路径不存在旧缓存，首请求即回源，所以包本身永远是最新的。
-  代价：zip 需要提交进仓库的 release/ 目录（Release 附件 jsDelivr 取不到）。
-  想换成自有对象存储/自建反代时，只需 --zip-base https://your.domain/memkeep 即可，
-  zipUrl 会变成 <zip-base>/<file>.zip。
+  默认走 GitHub Release 直链：
+      https://github.com/<repo>/releases/download/<version>/<file>.zip
+  每条 Release 的文件名都带版本号 = 每次都是新路径，不存在「拿到旧包」的问题。
+  国内直连不稳时可换镜像，例如：
+      --zip-base 'https://ghfast.top/https://github.com/{repo}/releases/download/{version}'
+  或自有对象存储：
+      --zip-base https://your.domain/memkeep        # → <zip-base>/<file>.zip
 """
 import argparse
 import json
@@ -37,7 +34,6 @@ import zipfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODULE_DIR = os.path.join(ROOT, "module")
 DIST_DIR = os.path.join(ROOT, "dist")
-RELEASE_DIR = os.path.join(ROOT, "release")   # 入库，供 jsDelivr 分发
 UPDATE_JSON = os.path.join(ROOT, "update.json")
 
 DEFAULT_REPO = "qvq9999/MemKeep"
@@ -188,7 +184,7 @@ def main():
     ap.add_argument("--repo", default=DEFAULT_REPO, help="GitHub owner/repo，默认 %s" % DEFAULT_REPO)
     ap.add_argument("--zip-base", default=None,
                     help="zipUrl 前缀；支持 {repo} / {version} 占位符。"
-                         "默认 jsDelivr 的 <repo>@main/release；换 ghproxy 示例："
+                         "默认 GitHub Release 直链；换镜像示例："
                          "--zip-base 'https://ghfast.top/https://github.com/{repo}/releases/download/{version}'")
     args = ap.parse_args()
 

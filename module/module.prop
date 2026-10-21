@@ -1,7 +1,7 @@
 id=memkeep_plus
 name=MemKeep++
-version=v3.4
-versionCode=30400
+version=v3.5
+versionCode=30500
 author=qvq9999
 description=内存压缩 + 后台保活 · ZRAM 容量/算法自选 · 保活三档 · 内置 WebUI，保存即生效（容量改动需重启）
 updateJson=https://qvq9999.github.io/MemKeep/update.json

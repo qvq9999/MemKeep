@@ -46,8 +46,10 @@ zram_size_value() {
 }
 
 zram_algorithm_value() {
+  # 必须与 WebUI 的 ALG_SHOW（zstd/lz4/lz4hc/lzo-rle/lzo/deflate）对齐：
+  # 原来这里只放行 4 个内置算法，用户在芯片支持的 lz4hc / deflate 上一点保存就报失败。
   case "$1" in
-    auto|zstd|lz4|lzo-rle|lzo) return 0 ;;
+    auto|zstd|lz4|lz4hc|lzo-rle|lzo|deflate|842|lz4kd) return 0 ;;
     *) return 1 ;;
   esac
 }
